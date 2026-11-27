@@ -121,3 +121,10 @@
 - 집·일터 셀은 셀 중심에서 300 m 안의 가장 가까운 도로 노드(가장 큰 강연결 요소 안)에 붙음. 없으면 그 셀은 빠짐.
 - 1단계는 출근·퇴근 통행만. 쇼핑·등하교 등 다른 통행은 없음. 집과 일터가 같은 노드면 차량 통행을 만들지 않음.
 
+## 건물 표시 높이
+
+<a id="building-height"></a>
+**가정 (근거 없음)** — `core/crates/world/src/buildings.rs`. 평택역 맵 건물 3,048개 중 `building:levels`가 있는 건물은 3개, `height`는 0개라 거의 모두 기본값을 씁니다.
+- 순서: `height` 태그 → `building:levels` × 3 m → 유형별 기본값.
+- 기본값: apartments 15층(45 m), house·detached·residential 2층(6 m), commercial·retail·office·school·public·hospital 4층(12 m), train_station·industrial·warehouse 6 m, roof·shed·garage·kiosk·construction 3 m, 그 밖(building=yes 등, 원도심 저층 상가주택으로 봄) 3층(9 m).
+- 지금은 표시용입니다. 인구·일자리 추정에 쓰려면 근거(건축물대장 등 공개 자료와 라이선스)를 먼저 확인합니다 (#13).

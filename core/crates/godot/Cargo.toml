@@ -1,0 +1,17 @@
+[package]
+name = "dongne-godot"
+description = "Godot 바인딩 (GDExtension, godot-rust/gdext)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "dongne_godot"
+crate-type = ["cdylib"]
+
+[dependencies]
+dongne-world.workspace = true
+dongne-sim-core.workspace = true
+# api-4-3: project.godot의 최소 버전(4.3)부터 같은 라이브러리로 동작
+godot = { version = "0.5.6", features = ["api-4-3"] }

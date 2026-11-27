@@ -26,6 +26,11 @@ fn loads_pyeongtaek_station_road_graph() {
         assert!(e.length_m > 0.0);
         assert!(e.lanes_forward + e.lanes_backward > 0);
     }
+    assert_eq!(world.buildings.len(), 3048);
+    assert!(world
+        .buildings
+        .iter()
+        .all(|b| b.height_m > 0.0 && b.footprint.len() >= 3));
     assert!(
         s.largest_scc_ratio >= MIN_SCC_RATIO,
         "최대 강연결 요소 비율 {}",
