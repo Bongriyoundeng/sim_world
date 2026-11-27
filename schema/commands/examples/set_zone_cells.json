@@ -1,0 +1,5 @@
+{
+  "type": "set_zone",
+  "area": { "cells": [[10, 12], [10, 13], [11, 12]] },
+  "zone": "residential"
+}

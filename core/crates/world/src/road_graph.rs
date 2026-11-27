@@ -100,6 +100,8 @@ pub struct Edge {
     pub free_speed_kmh: f64,
     /// from에서 to까지의 선 (로컬 미터). 클라이언트 보간용.
     pub points: Vec<(f64, f64)>,
+    /// 명령으로 없앤 엣지. ID를 유지하려고 목록에서 지우지 않는다.
+    pub removed: bool,
 }
 
 /// 차선 대기열 모델의 차선 하나.
@@ -292,6 +294,7 @@ impl RoadGraph {
                         lanes_backward: bwd,
                         free_speed_kmh: free_speed_kmh(&r.highway),
                         points: std::mem::take(&mut seg),
+                        removed: false,
                     });
                     seg.push(p);
                 }
@@ -324,10 +327,89 @@ impl RoadGraph {
         })
     }
 
+    /// 좌표에서 `radius_m` 안의 가장 가까운 노드 (동률이면 번호가 작은 노드).
+    pub fn nearest_node(&self, x: f64, y: f64, radius_m: f64) -> Option<u32> {
+        self.nodes
+            .iter()
+            .map(|n| ((n.x - x).hypot(n.y - y), n.id))
+            .filter(|&(d, _)| d <= radius_m)
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
+            .map(|(_, id)| id)
+    }
+
+    /// 새 노드를 추가하고 ID를 돌려준다.
+    pub fn add_node(&mut self, x: f64, y: f64) -> u32 {
+        let id = self.nodes.len() as u32;
+        self.nodes.push(Node {
+            id,
+            x,
+            y,
+            boundary: false,
+        });
+        id
+    }
+
+    /// 두 노드를 잇는 직선 도로 엣지와 그 차선을 추가하고 엣지 ID를 돌려준다.
+    /// 검증(유형, 차선 수, 길이)은 호출하는 쪽이 한다.
+    pub fn add_edge(
+        &mut self,
+        from: u32,
+        to: u32,
+        highway: &str,
+        lanes: Option<u32>,
+        oneway: bool,
+    ) -> u32 {
+        let a = &self.nodes[from as usize];
+        let b = &self.nodes[to as usize];
+        let points = vec![(a.x, a.y), (b.x, b.y)];
+        let length_m = dist(points[0], points[1]);
+        let (fwd, bwd) = lanes_by_direction(highway, lanes, oneway);
+        let id = self.edges.len() as u32;
+        self.edges.push(Edge {
+            id,
+            from,
+            to,
+            osm_id: 0,
+            highway: highway.to_string(),
+            name: None,
+            length_m,
+            lanes_forward: fwd,
+            lanes_backward: bwd,
+            free_speed_kmh: free_speed_kmh(highway),
+            points,
+            removed: false,
+        });
+        let capacity = ((length_m / VEHICLE_SPACING_M).floor() as u32).max(1);
+        for (forward, n) in [(true, fwd), (false, bwd)] {
+            for index in 0..n {
+                self.lanes.push(Lane {
+                    id: self.lanes.len() as u32,
+                    edge: id,
+                    forward,
+                    index,
+                    length_m,
+                    capacity,
+                });
+            }
+        }
+        id
+    }
+
+    /// 엣지를 없앤 것으로 표시한다. 이미 없거나 없는 번호면 false.
+    pub fn remove_edge(&mut self, id: u32) -> bool {
+        match self.edges.get_mut(id as usize) {
+            Some(e) if !e.removed => {
+                e.removed = true;
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// 방향 그래프의 인접 목록 (차선이 있는 방향만).
     pub fn successors(&self) -> Vec<Vec<u32>> {
         let mut adj = vec![Vec::new(); self.nodes.len()];
-        for e in &self.edges {
+        for e in self.edges.iter().filter(|e| !e.removed) {
             if e.lanes_forward > 0 {
                 adj[e.from as usize].push(e.to);
             }
@@ -404,10 +486,20 @@ impl RoadGraph {
             .unwrap_or(0);
         GraphStats {
             nodes: self.nodes.len(),
-            edges: self.edges.len(),
-            lanes: self.lanes.len(),
+            edges: self.edges.iter().filter(|e| !e.removed).count(),
+            lanes: self
+                .lanes
+                .iter()
+                .filter(|l| !self.edges[l.edge as usize].removed)
+                .count(),
             boundary_nodes: self.nodes.iter().filter(|n| n.boundary).count(),
-            lane_km: self.lanes.iter().map(|l| l.length_m).sum::<f64>() / 1000.0,
+            lane_km: self
+                .lanes
+                .iter()
+                .filter(|l| !self.edges[l.edge as usize].removed)
+                .map(|l| l.length_m)
+                .sum::<f64>()
+                / 1000.0,
             largest_scc_ratio: if self.nodes.is_empty() {
                 0.0
             } else {

@@ -6,7 +6,9 @@ use std::path::Path;
 pub use dongne_api::Manifest;
 
 pub mod road_graph;
+pub mod zones;
 pub use road_graph::{GraphError, GraphStats, RoadGraph};
+pub use zones::{Zone, ZoneMap};
 
 /// 맵 패키지 로드 오류.
 #[derive(Debug)]
@@ -41,6 +43,8 @@ pub struct World {
     pub manifest: Manifest,
     /// `roads.geojson`에서 만든 차량 도로 그래프. 파일이 없으면 비어 있다.
     pub road_graph: RoadGraph,
+    /// 셀 단위 구역 지정 (terrain과 같은 격자). 처음에는 비어 있다.
+    pub zones: ZoneMap,
 }
 
 /// `manifest.json` 문자열을 검증해 읽는다.
@@ -67,9 +71,15 @@ pub fn load_map(dir: &Path) -> Result<World, LoadError> {
     } else {
         RoadGraph::default()
     };
+    let zones = ZoneMap::new(
+        manifest.extent_m.width,
+        manifest.extent_m.height,
+        manifest.terrain.resolution_m,
+    );
     Ok(World {
         manifest,
         road_graph,
+        zones,
     })
 }
 
