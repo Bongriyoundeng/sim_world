@@ -49,3 +49,9 @@ cd core && cargo test
 - 평택역 맵에서 100대(시드 7)가 가장 많이 지나는 엣지를 출발 전에 없애면 26대가 경로를 바꾸고 100대 모두 도착합니다 (평균 149.0 초). 같은 명령을 두 번 돌리면 결과가 같습니다 (`crates/sim/tests/commands.rs`).
 - 가정: [research-log.md](../docs/design/research-log.md#commands)
 
+## 통근 수요 (`crates/sim/src/demand.rs`)
+
+`Simulation::add_commute(params, seed)`가 `World::zones`에서 통근자를 만들고 출근·퇴근 차량 통행을 예약합니다. 주거 셀 → 업무·상업 셀(남은 일자리에 비례), 출근 08:00·퇴근 18:00 ± 30분. 파라미터는 모두 가정입니다 ([research-log.md](../docs/design/research-log.md#commute-demand)).
+
+평택역 맵 예 (`crates/sim/tests/commute.rs`): 남서쪽 주거 169셀, 역 앞 업무 100셀, 동쪽 상업 100셀 → 통근자 1,690명, 통행 3,380개, 하루 안에 모두 도착(평균 190.2 초, 최장 416.6 초). 시간대별 도로 위 차량은 07시 802·08시 881, 17시 776·18시 900대이고 03시·12시는 0대로, 출퇴근 피크가 생깁니다.
+

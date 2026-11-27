@@ -6,8 +6,22 @@ pub use dongne_api::{Command, CommandOutcome, CommandResult, RoadEnd};
 use dongne_world::road_graph::is_vehicle_road;
 use dongne_world::World;
 
+pub mod demand;
 pub mod traffic;
+pub use demand::{Commuter, DemandParams, DemandSummary};
 pub use traffic::{Rng, Traffic, TrafficStats, Vehicle, VehicleState};
+
+/// `add_commute` 결과.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct CommuteReport {
+    pub demand: DemandSummary,
+    /// 예약한 차량 통행 수 (출근 + 퇴근)
+    pub trips: u32,
+    /// 집과 일터가 같은 노드라 차량 통행이 없는 통근자 수
+    pub same_node: u32,
+    /// 경로를 못 찾은 통행 수
+    pub unroutable: u32,
+}
 
 /// 틱 하나의 시뮬레이션 시간 (ms, 가정). 교통 이벤트는 틱 경계까지 처리된다.
 pub const TICK_MS: u64 = 100;
@@ -175,6 +189,33 @@ impl Simulation {
                 }
             }
         }
+    }
+
+    /// 지금 구역 맵에서 통근자를 만들고 출근(집 → 일터)·퇴근(일터 → 집) 차량 통행을 예약한다.
+    pub fn add_commute(&mut self, params: &DemandParams, seed: u64) -> CommuteReport {
+        let (commuters, demand) =
+            demand::generate_commuters(&self.world.zones, &self.world.road_graph, params, seed);
+        let mut report = CommuteReport {
+            demand,
+            ..Default::default()
+        };
+        for c in &commuters {
+            if c.home_node == c.work_node {
+                report.same_node += 1;
+                continue;
+            }
+            for (o, d, t) in [
+                (c.home_node, c.work_node, c.leave_home_ms),
+                (c.work_node, c.home_node, c.leave_work_ms),
+            ] {
+                if self.traffic.add_trip(o, d, t).is_some() {
+                    report.trips += 1;
+                } else {
+                    report.unroutable += 1;
+                }
+            }
+        }
+        report
     }
 
     /// 가장 큰 강연결 요소 안에서 무작위 출발·도착 노드로 차량 `n`대를 예약한다.
