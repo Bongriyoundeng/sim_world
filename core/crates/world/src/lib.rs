@@ -5,6 +5,9 @@ use std::path::Path;
 
 pub use dongne_api::Manifest;
 
+pub mod road_graph;
+pub use road_graph::{GraphError, GraphStats, RoadGraph};
+
 /// 맵 패키지 로드 오류.
 #[derive(Debug)]
 pub enum LoadError {
@@ -12,6 +15,7 @@ pub enum LoadError {
     Parse(serde_json::Error),
     UnsupportedVersion(u32),
     MissingAttribution,
+    Roads(GraphError),
 }
 
 impl fmt::Display for LoadError {
@@ -21,6 +25,7 @@ impl fmt::Display for LoadError {
             LoadError::Parse(e) => write!(f, "manifest.json 형식 오류: {e}"),
             LoadError::UnsupportedVersion(v) => write!(f, "지원하지 않는 format_version: {v}"),
             LoadError::MissingAttribution => write!(f, "manifest.json에 attribution(출처)이 없음"),
+            LoadError::Roads(e) => write!(f, "{e}"),
         }
     }
 }
@@ -30,10 +35,12 @@ impl std::error::Error for LoadError {}
 /// 지원하는 맵 패키지 형식 버전.
 pub const FORMAT_VERSION: u32 = 0;
 
-/// 맵 패키지에서 읽은 월드. 0단계에서는 manifest만 담는다.
+/// 맵 패키지에서 읽은 월드.
 #[derive(Debug, Clone)]
 pub struct World {
     pub manifest: Manifest,
+    /// `roads.geojson`에서 만든 차량 도로 그래프. 파일이 없으면 비어 있다.
+    pub road_graph: RoadGraph,
 }
 
 /// `manifest.json` 문자열을 검증해 읽는다.
@@ -51,8 +58,18 @@ pub fn parse_manifest(json: &str) -> Result<Manifest, LoadError> {
 /// 맵 패키지 폴더를 읽는다.
 pub fn load_map(dir: &Path) -> Result<World, LoadError> {
     let json = std::fs::read_to_string(dir.join("manifest.json")).map_err(LoadError::Io)?;
+    let manifest = parse_manifest(&json)?;
+    let roads_path = dir.join("roads.geojson");
+    let road_graph = if roads_path.exists() {
+        let roads = std::fs::read_to_string(roads_path).map_err(LoadError::Io)?;
+        RoadGraph::from_geojson(&roads, manifest.extent_m.width, manifest.extent_m.height)
+            .map_err(LoadError::Roads)?
+    } else {
+        RoadGraph::default()
+    };
     Ok(World {
-        manifest: parse_manifest(&json)?,
+        manifest,
+        road_graph,
     })
 }
 
