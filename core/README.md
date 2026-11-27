@@ -5,7 +5,7 @@
 | `crates/api` | 명령·스냅샷·맵 패키지 타입 (`schema/`와 일치) |
 | `crates/world` | 맵 패키지 읽기, 도로 그래프, 지형 |
 | `crates/sim` | 틱 루프, 교통·경제·인구 |
-| `crates/py` | Python 바인딩 (PyO3) — 0단계 6번 작업에서 추가 |
+| `crates/py` | Python 바인딩 (PyO3, `import dongne_core`) — [README](crates/py/README.md) |
 | `crates/godot` | Godot 바인딩 (GDExtension) — 0단계 7번 작업에서 추가 |
 
 ```sh
@@ -55,3 +55,6 @@ cd core && cargo test
 
 평택역 맵 예 (`crates/sim/tests/commute.rs`): 남서쪽 주거 169셀, 역 앞 업무 100셀, 동쪽 상업 100셀 → 통근자 1,690명, 통행 3,380개, 하루 안에 모두 도착(평균 190.2 초, 최장 416.6 초). 시간대별 도로 위 차량은 07시 802·08시 881, 17시 776·18시 900대이고 03시·12시는 0대로, 출퇴근 피크가 생깁니다.
 
+## Python 바인딩 (`crates/py`)
+
+`import dongne_core`로 `Simulation.load` → `submit`(명령) → `step` → `snapshot`(dict)을 씁니다. 사용법과 빌드: [crates/py/README.md](crates/py/README.md). 스냅샷 형식: [schema/snapshots](../schema/snapshots/README.md). libpython이 필요해 workspace `default-members`에서 빠져 있고, CI `python-binding` 잡이 maturin + pytest로 검사합니다.

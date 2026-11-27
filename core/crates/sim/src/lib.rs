@@ -7,6 +7,7 @@ use dongne_world::road_graph::is_vehicle_road;
 use dongne_world::World;
 
 pub mod demand;
+pub mod snapshot;
 pub mod traffic;
 pub use demand::{Commuter, DemandParams, DemandSummary};
 pub use traffic::{Rng, Traffic, TrafficStats, Vehicle, VehicleState};
