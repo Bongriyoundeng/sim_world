@@ -58,3 +58,14 @@
 
 <a id="cds"></a>
 **Copernicus Climate Data Store**: 2025-07-02부터 "Licence to use Copernicus Products"가 CC-BY 4.0으로 대체됨([ECMWF 포럼](https://forum.ecmwf.int/t/cc-by-licence-to-replace-licence-to-use-copernicus-products-on-02-july-2025/13464)). CMIP6 원자료는 파일의 `license` 속성을 따라야 하며 일부 모델은 비상업(CC BY-NC-SA) → 사용 불가([CMIP6 이용 조건](https://ewds.climate.copernicus.eu/licences/cmip6-wps)).
+
+## 지형 데이터 받는 곳
+
+<a id="copernicus-dem-aws"></a>
+**Copernicus DEM GLO-30 — AWS Open Data 버킷** (조사일 2026-11-27, 직접 열어 확인)
+- 버킷 안내: [copernicus-dem-30m readme](https://copernicus-dem-30m.s3.amazonaws.com/readme.html). Copernicus DEM은 건물·인프라·식생을 포함한 지표면 모델(DSM)이고, Cloud Optimized GeoTIFF로 제공. 바다는 타일이 없고 고도 0으로 간주.
+- 경로 규칙: `Copernicus_DSM_COG_[해상도]_[북위]_[동경]_DEM/` 폴더에 같은 이름의 `.tif`. 해상도는 각초 단위(GLO-30은 `10`), 북위·동경은 `N36_00`, `E127_00`처럼 소수부가 항상 `00`인 타일 남서쪽 정수 좌표.
+- 실제 확인: [버킷 목록 (prefix N36_00_E127)](https://copernicus-dem-30m.s3.amazonaws.com/?list-type=2&prefix=Copernicus_DSM_COG_10_N36_00_E127&max-keys=10)에 `Copernicus_DSM_COG_10_N36_00_E127_00_DEM/` 폴더가 있고, [타일 파일](https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N36_00_E127_00_DEM/Copernicus_DSM_COG_10_N36_00_E127_00_DEM.tif)이 HTTP 200, 약 49.6MB.
+- 위도 0~50°의 GLO-30 타일은 3600×3600 픽셀(원본 3601에서 동·남쪽 공유 행·열 제거), DEFLATE 압축.
+- 라이선스: 버킷 안내는 Copernicus Programme의 이용 조건(무료, 일반 공개)을 가리킴. 표기 문구는 [ATTRIBUTION.md](../../ATTRIBUTION.md)를 따름.
+- 쓰인 곳: `gis/src/dongne_gis/terrain.py`, 이슈 #2
