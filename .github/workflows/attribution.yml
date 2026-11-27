@@ -1,0 +1,21 @@
+name: attribution
+on:
+  push:
+    branches: [main]
+    paths: ["maps/**"]
+  pull_request:
+    paths: ["maps/**"]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 모든 맵 패키지에 출처가 있는지 검사
+        run: |
+          status=0
+          for m in $(find maps -name manifest.json); do
+            if ! python3 -c "import json,sys; a=json.load(open('$m')).get('attribution') or []; sys.exit(0 if any(s.strip() for s in a) else 1)"; then
+              echo "::error file=$m::attribution(출처)이 비어 있습니다"; status=1
+            fi
+          done
+          exit $status

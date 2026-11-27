@@ -1,0 +1,9 @@
+[package]
+name = "dongne-sim-core"
+description = "틱 루프와 교통·경제·인구 시뮬레이션"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dongne-world.workspace = true

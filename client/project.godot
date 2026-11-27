@@ -1,0 +1,12 @@
+; Engine configuration file.
+
+config_version=5
+
+[application]
+
+config/name="sim_world"
+config/features=PackedStringArray("4.3")
+
+[rendering]
+
+renderer/rendering_method="forward_plus"

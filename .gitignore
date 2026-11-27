@@ -1,0 +1,17 @@
+# Rust
+core/target/
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+# Godot
+client/.godot/
+client/addons/dongne_core/bin/
+# 원본 지도 데이터 (tools/로 내려받음)
+data-raw/
+*.osm.pbf
+*.tif
+# 비밀값
+.env
