@@ -126,6 +126,35 @@ impl Simulation {
         )
     }
 
+    /// 엣지별 실제 통과 차량 수 `[(edge, vehicles), ...]`, 많은 순. `top`을 주면 앞에서 그만큼만.
+    #[pyo3(signature = (top = None))]
+    fn edge_usage(&self, top: Option<usize>) -> Vec<(u32, u32)> {
+        let mut u = self.inner.edge_usage();
+        if let Some(n) = top {
+            u.truncate(n);
+        }
+        u
+    }
+
+    /// 엣지 정보 dict (도로 유형, 이름, 길이, 방향별 차선 수, 없앤 도로인지).
+    fn edge_info(&self, py: Python<'_>, edge: u32) -> PyResult<Py<PyAny>> {
+        let e = self
+            .inner
+            .world
+            .road_graph
+            .edges
+            .get(edge as usize)
+            .ok_or_else(|| PyValueError::new_err(format!("없는 엣지: {edge}")))?;
+        from_json(
+            py,
+            &serde_json::json!({
+                "edge": e.id, "osm_id": e.osm_id, "highway": e.highway, "name": e.name,
+                "length_m": e.length_m, "lanes_forward": e.lanes_forward,
+                "lanes_backward": e.lanes_backward, "removed": e.removed,
+            }),
+        )
+    }
+
     /// 지금 상태를 dict로 (schema/snapshots 형식). vehicles=False면 차량 목록을 뺀다.
     #[pyo3(signature = (vehicles = true))]
     fn snapshot(&self, py: Python<'_>, vehicles: bool) -> PyResult<Py<PyAny>> {

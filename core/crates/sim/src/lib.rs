@@ -222,6 +222,23 @@ impl Simulation {
     /// 가장 큰 강연결 요소 안에서 무작위 출발·도착 노드로 차량 `n`대를 예약한다.
     /// 출발 시각은 `[0, depart_window_ms)`에서 고르게 뽑는다. 같은 시드면 같은 차량이 나온다.
     /// 예약한 차량 수를 돌려준다 (경로를 못 찾는 쌍은 다시 뽑고, 시도 횟수를 넘으면 그만둔다).
+    /// 엣지별로 실제로 지나간 차량 수 (같은 차량은 한 번만). 많은 순, 동률이면 엣지 번호 순.
+    pub fn edge_usage(&self) -> Vec<(u32, u32)> {
+        let lanes = &self.world.road_graph.lanes;
+        let mut count = std::collections::BTreeMap::<u32, u32>::new();
+        for v in &self.traffic.vehicles {
+            let mut edges: Vec<u32> = v.trace.iter().map(|&l| lanes[l as usize].edge).collect();
+            edges.sort_unstable();
+            edges.dedup();
+            for e in edges {
+                *count.entry(e).or_insert(0) += 1;
+            }
+        }
+        let mut out: Vec<(u32, u32)> = count.into_iter().collect();
+        out.sort_by_key(|&(e, n)| (Reverse(n), e));
+        out
+    }
+
     pub fn add_random_trips(&mut self, n: usize, seed: u64, depart_window_ms: u64) -> usize {
         let comps = self.world.road_graph.strongly_connected_components();
         let Some(nodes) = comps.iter().max_by_key(|c| (c.len(), Reverse(c[0]))) else {
