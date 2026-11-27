@@ -2,9 +2,9 @@ name: core
 on:
   push:
     branches: [main]
-    paths: ["core/**", ".github/workflows/core.yml"]
+    paths: ["core/**", "tests/scenarios/**", "maps/**", ".github/workflows/core.yml"]
   pull_request:
-    paths: ["core/**", ".github/workflows/core.yml"]
+    paths: ["core/**", "tests/scenarios/**", "maps/**", ".github/workflows/core.yml"]
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -33,4 +33,6 @@ jobs:
       - run: uv pip install --python .venv maturin pytest
       - run: .venv/bin/maturin develop --uv
       - run: .venv/bin/python -m pytest -q tests
+      - name: 시나리오 테스트 (tests/scenarios)
+        run: .venv/bin/python -m pytest -q ../../../tests/scenarios
 
