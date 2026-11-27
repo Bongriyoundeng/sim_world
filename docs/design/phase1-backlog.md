@@ -5,7 +5,7 @@
 
 | # | 팀 | 이슈 | 완료 기준 | 선행 |
 | --- | --- | --- | --- | --- |
-| 1 | GIS | OSM에서 도로·건물 추출, 로컬 미터 좌표 변환 | 샘플 동네 `roads.geojson`, `buildings.geojson` 생성 | 샘플 동네 결정 |
+| 1 | GIS | OSM에서 도로·건물 추출, 로컬 미터 좌표 변환 | 샘플 동네 `roads.geojson`, `buildings.geojson` 생성 | — |
 | 2 | GIS | Copernicus DEM 잘라 16비트 높이맵 생성 | `terrain.png` + manifest 고도 범위 | 1 |
 | 3 | GIS | 토지 피복 레이어(불투수·나무 수관 비율, 30m 격자) | `landcover.png` 초안 | 1, 2 (기후용) |
 | 4 | 코어 | 맵 패키지에서 도로 그래프(노드·차선) 생성 | 교차로·차선 수 단위 테스트 | 1 |
@@ -20,4 +20,4 @@
 | 13 | 기획 | 1단계 밸런스: 구역별 수요·도로 용량 기본값 | `docs/design/balance.md` | 7 |
 | 14 | 커뮤니티 | 데모 GIF + README 갱신, 기여자 모집 글 | README에 GIF | 10 |
 
-샘플 동네가 정해지지 않으면 1·2번이 막히므로, 리드가 먼저 정해야 합니다.
+샘플 동네: 평택역 원도심 통복천 일대 ([sample-area.md](sample-area.md)).
