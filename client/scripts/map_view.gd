@@ -8,6 +8,7 @@ extends Node3D
 ##   --map <폴더>        맵 패키지 (기본: 저장소의 maps/pyeongtaek-station)
 ##   --quit-after-load   메시를 다 만들고 종료 (헤드리스 확인용)
 ##   --capture <png>     몇 프레임 그린 뒤 화면을 저장하고 종료
+##   그 밖의 옵션(--selftest, --demo)과 조작법은 scripts/sim_controller.gd
 
 const DEFAULT_MAP := "../maps/pyeongtaek-station"
 const ROAD_LIFT_M := 0.6        # 도로를 지형 위로 살짝 띄움
@@ -25,6 +26,7 @@ var cols := 0
 var res_m := 30.0
 var extent := Vector2.ZERO
 var heights := PackedFloat32Array()
+var cam: Camera3D
 
 
 func _ready() -> void:
@@ -44,7 +46,7 @@ func _ready() -> void:
 	if not _load_terrain(map_dir.path_join(world.terrain_file())):
 		return
 	add_child(_terrain_mesh())
-	add_child(_road_mesh())
+	rebuild_roads()
 	add_child(_building_mesh())
 	_add_camera_and_light()
 
@@ -55,6 +57,20 @@ func _ready() -> void:
 		get_tree().quit(0)
 	elif "--capture" in args:
 		await _capture(_arg(args, "--capture", "map_view.png"))
+	else:
+		# 시뮬레이션 진행·차량 표시·도구 (scripts/sim_controller.gd)
+		var ctrl: Node = load("res://scripts/sim_controller.gd").new()
+		ctrl.name = "SimController"
+		add_child(ctrl)
+
+
+## 도로 메시를 다시 만든다 (도로 추가·삭제 명령 뒤).
+func rebuild_roads() -> void:
+	var old := get_node_or_null("Roads")
+	if old:
+		remove_child(old)
+		old.queue_free()
+	add_child(_road_mesh())
 
 
 func _arg(args: PackedStringArray, name: String, default: String) -> String:
@@ -211,7 +227,7 @@ func _material(albedo: Color, vertex_color: bool) -> StandardMaterial3D:
 # ── 카메라·조명 ────────────────────────────────────────
 
 func _add_camera_and_light() -> void:
-	var cam := Camera3D.new()
+	cam = Camera3D.new()
 	cam.name = "Camera"
 	cam.far = 6000
 	cam.fov = 50

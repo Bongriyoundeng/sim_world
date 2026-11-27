@@ -4,7 +4,9 @@
 
 use godot::prelude::*;
 
-use dongne_sim_core::Simulation;
+use dongne_sim_core::demand::DemandParams;
+use dongne_sim_core::{Command, Simulation, TICK_MS};
+use dongne_world::Zone;
 
 struct DongneExtension;
 
@@ -194,4 +196,154 @@ impl DongneWorld {
     fn tick(&self) -> i64 {
         self.sim().map(|s| s.tick() as i64).unwrap_or(0)
     }
+
+    /// 시뮬레이션 시각 (초, 자정 = 0).
+    #[func]
+    fn time_s(&self) -> f64 {
+        self.sim()
+            .map(|s| (s.tick() * TICK_MS) as f64 / 1000.0)
+            .unwrap_or(0.0)
+    }
+
+    /// 도로 위 차량: [id, x, y, 진행 방향(라디안), …] (로컬 미터, 4개씩).
+    #[func]
+    fn vehicle_positions(&self) -> PackedFloat32Array {
+        let mut out = PackedFloat32Array::new();
+        let Some(s) = self.sim() else {
+            return out;
+        };
+        let g = &s.world.road_graph;
+        for (v, lane, d) in s.traffic.lane_positions(g) {
+            let l = &g.lanes[lane as usize];
+            if let Some((x, y, h)) = g.lane_point(l.edge, l.forward, l.index, d, LANE_WIDTH_M) {
+                for f in [v as f32, x as f32, y as f32, h as f32] {
+                    out.push(f);
+                }
+            }
+        }
+        out
+    }
+
+    /// 명령(JSON 문자열, schema/commands 형식)을 넣고 번호를 돌려준다. 형식이 틀리면 -1.
+    /// 다음 step에서 적용되고, 결과는 `outcomes_json()`.
+    #[func]
+    fn submit(&mut self, command_json: GString) -> i64 {
+        let Some(s) = self.sim.as_mut() else {
+            return -1;
+        };
+        match serde_json::from_str::<Command>(&command_json.to_string()) {
+            Ok(c) => s.submit(c) as i64,
+            Err(e) => {
+                self.error = format!("명령 형식 오류: {e}");
+                -1
+            }
+        }
+    }
+
+    /// 지금까지 처리한 명령 결과 (JSON 배열).
+    #[func]
+    fn outcomes_json(&self) -> GString {
+        self.sim()
+            .map(|s| {
+                GString::from(
+                    serde_json::to_string(&s.outcomes)
+                        .unwrap_or_default()
+                        .as_str(),
+                )
+            })
+            .unwrap_or_default()
+    }
+
+    /// 구역 셀: [행, 열, 구역(0 주거, 1 상업, 2 업무, 3 공원), …] (3개씩).
+    #[func]
+    fn zone_cells(&self) -> PackedInt32Array {
+        let mut out = PackedInt32Array::new();
+        if let Some(s) = self.sim() {
+            for (r, c, z) in s.world.zones.zoned() {
+                let zi = match z {
+                    Zone::Residential => 0,
+                    Zone::Commercial => 1,
+                    Zone::Office => 2,
+                    Zone::Park => 3,
+                };
+                for v in [r as i32, c as i32, zi] {
+                    out.push(v);
+                }
+            }
+        }
+        out
+    }
+
+    /// 좌표가 들어 있는 구역 셀 (행, 열). 맵 밖이면 (-1, -1).
+    #[func]
+    fn cell_at(&self, p: Vector2) -> Vector2i {
+        self.sim()
+            .and_then(|s| s.world.zones.cell_at(p.x as f64, p.y as f64))
+            .map(|(r, c)| Vector2i::new(r as i32, c as i32))
+            .unwrap_or(Vector2i::new(-1, -1))
+    }
+
+    /// 좌표에서 `max_m` 안의 가장 가까운 도로 엣지. 없으면 -1.
+    #[func]
+    fn nearest_edge(&self, p: Vector2, max_m: f64) -> i64 {
+        self.sim()
+            .and_then(|s| {
+                s.world
+                    .road_graph
+                    .nearest_edge(p.x as f64, p.y as f64, max_m)
+            })
+            .map_or(-1, |e| e as i64)
+    }
+
+    /// 무작위 통행 n개 예약 (출발은 지금부터 `window_s`초 안). 예약한 수.
+    #[func]
+    fn add_random_trips(&mut self, n: i64, seed: i64, window_s: f64) -> i64 {
+        let Some(s) = self.sim.as_mut() else {
+            return 0;
+        };
+        let start = s.tick() * TICK_MS;
+        let before = s.traffic.vehicles.len();
+        let added = s.add_random_trips(n.max(0) as usize, seed as u64, (window_s * 1000.0) as u64);
+        // 출발 시각을 지금 이후로 옮긴다 (add_random_trips는 0 ms 기준)
+        for v in &mut s.traffic.vehicles[before..] {
+            v.depart_ms += start;
+        }
+        added as i64
+    }
+
+    /// 지금 구역 맵에서 출퇴근 통행을 만든다. 요약 JSON.
+    #[func]
+    fn add_commute(&mut self, seed: i64) -> GString {
+        let Some(s) = self.sim.as_mut() else {
+            return GString::new();
+        };
+        let r = s.add_commute(&DemandParams::default(), seed as u64);
+        GString::from(
+            format!(
+                r#"{{"commuters":{},"trips":{},"same_node":{},"unroutable":{}}}"#,
+                r.demand.commuters, r.trips, r.same_node, r.unroutable
+            )
+            .as_str(),
+        )
+    }
+
+    /// 교통 통계 JSON: 차량 수, 도착 수, 평균·최장 이동 시간(초).
+    #[func]
+    fn traffic_json(&self) -> GString {
+        self.sim()
+            .map(|s| {
+                let t = s.traffic.stats();
+                GString::from(
+                    format!(
+                        r#"{{"vehicles":{},"arrived":{},"mean_travel_s":{:.1},"max_travel_s":{:.1}}}"#,
+                        t.vehicles, t.arrived, t.mean_travel_s, t.max_travel_s
+                    )
+                    .as_str(),
+                )
+            })
+            .unwrap_or_default()
+    }
 }
+
+/// 표시용 차로 폭 (m). docs/design/research-log.md#road-width
+const LANE_WIDTH_M: f64 = 3.0;
