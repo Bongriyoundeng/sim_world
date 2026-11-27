@@ -17,11 +17,12 @@ def build_manifest(
     max_elevation_m: float,
     resolution_m: float = 30,
     attribution: list[str] | None = None,
+    landcover: dict | None = None,
 ) -> dict:
     sources = attribution if attribution is not None else list(attr.DEFAULT)
     if not any(s.strip() for s in sources):
         raise ValueError("attribution(출처)이 비어 있으면 맵 패키지를 만들 수 없습니다")
-    return {
+    m = {
         "format_version": FORMAT_VERSION,
         "name": name,
         "origin": {"lat": lat, "lon": lon},
@@ -35,3 +36,6 @@ def build_manifest(
         },
         "attribution": sources,
     }
+    if landcover is not None:
+        m["landcover"] = landcover  # 선택 항목 (schema/map-package/README.md)
+    return m

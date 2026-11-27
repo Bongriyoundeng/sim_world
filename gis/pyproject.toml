@@ -4,7 +4,12 @@ version = "0.0.1"
 description = "OSM + Copernicus DEM → 맵 패키지 변환"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "numpy>=2.5.5",
+    "pyproj>=3.8.0",
+    "rasterio>=1.5.2",
+    "shapely>=2.2.0",
+]
 
 [dependency-groups]
 dev = ["pytest>=8"]

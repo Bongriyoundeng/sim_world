@@ -7,3 +7,6 @@ license.workspace = true
 
 [dependencies]
 dongne-world.workspace = true
+
+[dev-dependencies]
+dongne-world.workspace = true

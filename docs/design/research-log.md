@@ -59,6 +59,48 @@
 <a id="cds"></a>
 **Copernicus Climate Data Store**: 2025-07-02부터 "Licence to use Copernicus Products"가 CC-BY 4.0으로 대체됨([ECMWF 포럼](https://forum.ecmwf.int/t/cc-by-licence-to-replace-licence-to-use-copernicus-products-on-02-july-2025/13464)). CMIP6 원자료는 파일의 `license` 속성을 따라야 하며 일부 모델은 비상업(CC BY-NC-SA) → 사용 불가([CMIP6 이용 조건](https://ewds.climate.copernicus.eu/licences/cmip6-wps)).
 
+## 지형 데이터 받는 곳
+
+<a id="copernicus-dem-aws"></a>
+**Copernicus DEM GLO-30 — AWS Open Data 버킷** (조사일 2026-11-27, 직접 열어 확인)
+- 버킷 안내: [copernicus-dem-30m readme](https://copernicus-dem-30m.s3.amazonaws.com/readme.html). Copernicus DEM은 건물·인프라·식생을 포함한 지표면 모델(DSM)이고, Cloud Optimized GeoTIFF로 제공. 바다는 타일이 없고 고도 0으로 간주.
+- 경로 규칙: `Copernicus_DSM_COG_[해상도]_[북위]_[동경]_DEM/` 폴더에 같은 이름의 `.tif`. 해상도는 각초 단위(GLO-30은 `10`), 북위·동경은 `N36_00`, `E127_00`처럼 소수부가 항상 `00`인 타일 남서쪽 정수 좌표.
+- 실제 확인: [버킷 목록 (prefix N36_00_E127)](https://copernicus-dem-30m.s3.amazonaws.com/?list-type=2&prefix=Copernicus_DSM_COG_10_N36_00_E127&max-keys=10)에 `Copernicus_DSM_COG_10_N36_00_E127_00_DEM/` 폴더가 있고, [타일 파일](https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N36_00_E127_00_DEM/Copernicus_DSM_COG_10_N36_00_E127_00_DEM.tif)이 HTTP 200, 약 49.6MB.
+- 위도 0~50°의 GLO-30 타일은 3600×3600 픽셀(원본 3601에서 동·남쪽 공유 행·열 제거), DEFLATE 압축.
+- 라이선스: 버킷 안내는 Copernicus Programme의 이용 조건(무료, 일반 공개)을 가리킴. 표기 문구는 [ATTRIBUTION.md](../../ATTRIBUTION.md)를 따름.
+- 쓰인 곳: `gis/src/dongne_gis/terrain.py`, 이슈 #2
+
+## 토지 피복 추정 (도로 폭)
+
+<a id="road-width"></a>
+**도로의 구조·시설 기준에 관한 규칙** (국토교통부령 제1588호, 2026-06-03 시행) [국가법령정보센터](https://www.law.go.kr/법령/도로의구조ㆍ시설기준에관한규칙) — 본문을 직접 열어 확인 (조사일 2026-11-27)
+- 제10조 ③ 차로의 최소 폭 (도시지역): 설계속도 100 km/h 이상 3.50 m, 80 이상 3.25 m, 70 이상 3.25 m, 60 이상 3.00 m, 60 미만 3.00 m. ④ 설계속도 40 km/h 이하 도시지역 차로는 불가피하면 2.75 m 이상.
+- 제16조 ③ 보도의 유효폭은 최소 2 m 이상 (지방지역 도로와 도시지역 국지도로는 불가피하면 1.5 m 이상).
+- 쓰인 곳: `gis/src/dongne_gis/landcover.py`. 차로 폭 3.00 m(원도심 도로를 설계속도 80 km/h 미만으로 봄), motorway·trunk 3.25 m, footway 2.0 m. 이 값은 "최소" 폭이므로 실제 포장 면적보다 작게 추정될 수 있음 (보수적).
+- **가정 (근거 없음)**: `lanes` 태그가 없을 때 유형별 차로 수, pedestrian 4 m, cycleway·path 1.5 m, track 3 m, 나무 점 수관 반경 3 m, 가로수 줄 폭 6 m, 하천 선 폭(river 20 m, stream 8 m, canal 8 m, drain 2 m, ditch 1.5 m). 측정 자료를 찾으면 교체.
+
+## 도로 그래프 기본값 (1단계 교통)
+
+<a id="road-lanes"></a>
+**가정 (근거 없음)** — `core/crates/world/src/road_graph.rs`. 측정·법령 근거를 찾으면 교체합니다.
+- `lanes` 태그가 없을 때 양방향 합계 차선 수: motorway·trunk·primary 4, secondary·tertiary·unclassified·residential 2, `*_link`·living_street·service 1. 토지 피복의 도로 폭(`gis/src/dongne_gis/landcover.py`)과 같은 값.
+- 양방향 도로는 차선을 반씩 나누고 방향별 최소 1 (1차로 service·living_street도 양방향 통행으로 봄).
+- 대기열 용량용 차량 간격 7.5 m (승용차 길이 + 정지 간격).
+- 자유 흐름 속도 (km/h): motorway 100, trunk 80, primary 60, secondary·tertiary 50, unclassified·residential 30, living_street·service 20. 맵 패키지에 `maxspeed`가 들어오면 그 값을 우선하도록 바꿀 예정.
+- 참고: 차로 **폭**은 법령 근거가 있음 ([road-width](#road-width)). 차로 **수**와 속도는 아직 없음.
+
+## 차량 이동 (차선 대기열, 1단계)
+
+<a id="traffic-queue"></a>
+**가정 (근거 없음)** — `core/crates/sim/src/traffic.rs`. ADR 0004(이벤트 기반, 차선 대기열, 가감속 없음)를 따르는 구현의 파라미터. 근거를 찾으면 교체합니다.
+- 시간 단위: 정수 밀리초, 틱 하나 = 100 ms. 이벤트는 (시각, 생성 순번) 순으로 처리.
+- 교차로: 신호 없음, 선착순(요청 순서), 교차로 하나에 한 번에 한 대, 한 대 통과 2 초. 앞 차량의 다음 차선이 가득 차 있으면 그 차량은 건너뛰고 다음 요청을 본다(교차로 전체가 막히지 않게).
+- 차선 주행 시간 = 엣지 길이 ÷ 자유 흐름 속도([road-lanes](#road-lanes)). 차선 안에서는 추월 없이 들어온 순서대로 나감.
+- 차선 선택: 막히지 않고 자리가 있는 차선 중 차량이 가장 적은 차선, 동률이면 번호가 작은 차선.
+- 회전 연결: 노드에 들어온 arc에서 나가는 모든 arc로 갈 수 있음. 유턴(같은 엣지 역방향)은 그 노드에서 다른 길이 없을 때(막다른 곳)만 허용.
+- 경로: 자유 흐름 시간 + 교차로 통과 시간 기준 Dijkstra, 동률이면 arc 번호가 작은 쪽. 다음 arc의 차선이 모두 막히면 그 교차로에서 경로를 다시 찾음.
+- 무작위 통행: 도로 그래프의 가장 큰 강연결 요소 안에서 출발·도착 노드를 SplitMix64(시드 고정)로 고르고, 출발 시각은 5분 구간에 고르게.
+
 ## 지역 연결 (3단계 이후)
 
 <a id="region-link"></a>

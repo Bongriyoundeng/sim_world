@@ -1,0 +1,33 @@
+{
+  "format_version": 0,
+  "name": "pyeongtaek-station",
+  "origin": {
+    "lat": 36.993,
+    "lon": 127.087
+  },
+  "crs": "local-meters",
+  "extent_m": {
+    "width": 1500,
+    "height": 1500
+  },
+  "terrain": {
+    "file": "terrain.png",
+    "resolution_m": 30,
+    "min_elevation_m": 2.93,
+    "max_elevation_m": 47.12
+  },
+  "attribution": [
+    "© OpenStreetMap contributors (ODbL 1.0)",
+    "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"
+  ],
+  "landcover": {
+    "file": "landcover.png",
+    "resolution_m": 30,
+    "channels": {
+      "r": "impervious",
+      "g": "canopy",
+      "b": "water"
+    },
+    "scale": 255
+  }
+}
