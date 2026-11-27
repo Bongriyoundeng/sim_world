@@ -2,6 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod command;
+pub use command::{Command, CommandOutcome, CommandResult, Point, RoadEnd, Zone, ZoneArea};
+
 /// 지리 기준점 (위경도). 로컬 좌표의 원점이다.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Origin {

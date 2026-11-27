@@ -5,7 +5,7 @@
 | `crates/api` | 명령·스냅샷·맵 패키지 타입 (`schema/`와 일치) |
 | `crates/world` | 맵 패키지 읽기, 도로 그래프, 지형 |
 | `crates/sim` | 틱 루프, 교통·경제·인구 |
-| `crates/py` | Python 바인딩 (PyO3) — 0단계 6번 작업에서 추가 |
+| `crates/py` | Python 바인딩 (PyO3, `import dongne_core`) — [README](crates/py/README.md) |
 | `crates/godot` | Godot 바인딩 (GDExtension) — 0단계 7번 작업에서 추가 |
 
 ```sh
@@ -38,3 +38,23 @@ cd core && cargo test
 - 파라미터와 가정: [research-log.md](../docs/design/research-log.md#traffic-queue)
 
 `maps/pyeongtaek-station`에서 차량 100대(시드 42, 5분 동안 출발): 모두 도착, 평균 이동 시간 139.6 초, 최장 361.8 초. 같은 시드로 두 번 돌리면 모든 차량 상태가 같습니다 (`crates/sim/tests/pyeongtaek_vehicles.rs`).
+
+## 명령 (`Simulation::submit`)
+
+`AddRoad`·`RemoveRoad`·`SetZone`을 [schema/commands](../schema/commands/README.md) 형식으로 받습니다. 다음 `step` 시작 때 넣은 순서대로 적용하고, 결과(`applied`/`rejected`)는 `Simulation::outcomes`에 남습니다.
+
+- 도로 그래프는 노드·엣지·차선을 뒤에 붙이기만 하고, 없앤 엣지는 `removed`로 표시해 ID가 바뀌지 않습니다. `Traffic::sync`가 새 부분을 교통 모델에 반영합니다.
+- 도로가 바뀌면 영향받는 차량의 남은 경로를 다시 찾습니다 (#5의 재탐색 재사용).
+- 구역은 `World::zones`(terrain과 같은 셀 격자)에 저장합니다. 통근 수요 생성(#7)의 입력입니다.
+- 평택역 맵에서 100대(시드 7)가 가장 많이 지나는 엣지를 출발 전에 없애면 26대가 경로를 바꾸고 100대 모두 도착합니다 (평균 149.0 초). 같은 명령을 두 번 돌리면 결과가 같습니다 (`crates/sim/tests/commands.rs`).
+- 가정: [research-log.md](../docs/design/research-log.md#commands)
+
+## 통근 수요 (`crates/sim/src/demand.rs`)
+
+`Simulation::add_commute(params, seed)`가 `World::zones`에서 통근자를 만들고 출근·퇴근 차량 통행을 예약합니다. 주거 셀 → 업무·상업 셀(남은 일자리에 비례), 출근 08:00·퇴근 18:00 ± 30분. 파라미터는 모두 가정입니다 ([research-log.md](../docs/design/research-log.md#commute-demand)).
+
+평택역 맵 예 (`crates/sim/tests/commute.rs`): 남서쪽 주거 169셀, 역 앞 업무 100셀, 동쪽 상업 100셀 → 통근자 1,690명, 통행 3,380개, 하루 안에 모두 도착(평균 190.2 초, 최장 416.6 초). 시간대별 도로 위 차량은 07시 802·08시 881, 17시 776·18시 900대이고 03시·12시는 0대로, 출퇴근 피크가 생깁니다.
+
+## Python 바인딩 (`crates/py`)
+
+`import dongne_core`로 `Simulation.load` → `submit`(명령) → `step` → `snapshot`(dict)을 씁니다. 사용법과 빌드: [crates/py/README.md](crates/py/README.md). 스냅샷 형식: [schema/snapshots](../schema/snapshots/README.md). libpython이 필요해 workspace `default-members`에서 빠져 있고, CI `python-binding` 잡이 maturin + pytest로 검사합니다.

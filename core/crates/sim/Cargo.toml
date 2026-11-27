@@ -6,7 +6,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+dongne-api.workspace = true
 dongne-world.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 dongne-world.workspace = true
