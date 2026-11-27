@@ -6,12 +6,12 @@
 cd gis && uv run pytest
 ```
 
-## 맵 패키지 만들기 (도로·건물)
+## 맵 패키지 만들기 (도로·건물·지형)
 
 ```sh
 cd gis
 uv run python -m dongne_gis build --name pyeongtaek-station --lat 36.993 --lon 127.087 --size 1500 --out ../maps/pyeongtaek-station
-uv run python -m dongne_gis check --lat 36.993 --lon 127.087 --size 1500   # 평택역·통복천 포함 확인
+uv run python -m dongne_gis check --lat 36.993 --lon 127.087 --size 1500   # 평택역·통복천 포함, 통복천 저지대 확인
 ```
 
 | 모듈 | 하는 일 |
@@ -20,7 +20,8 @@ uv run python -m dongne_gis check --lat 36.993 --lon 127.087 --size 1500   # 평
 | `project.py` | 위경도 → origin 중심 횡메르카토르 미터 좌표 (x 동쪽, y 북쪽) |
 | `roads.py` | `roads.geojson`: LineString, `osm_id`·`highway`·`name`·`lanes`·`oneway`. 구역 경계에서 자르고, `oneway=-1`은 진행 방향으로 뒤집음 |
 | `buildings.py` | `buildings.geojson`: Polygon, `osm_id`·`osm_type`·`building`·`building:levels`·`height`. 무게중심이 구역 안인 건물만, 멀티폴리곤은 바깥 고리마다 하나 |
-| `package.py` | `manifest.json`, 두 GeoJSON, 출처·생성 정보를 담은 `README.md` 생성 |
+| `terrain.py` | Copernicus DEM GLO-30 타일을 AWS Open Data 버킷에서 받아 `data-raw/copernicus-dem-30m/`에 캐시, 같은 로컬 격자(30m, 행 0 = 북쪽)로 쌍선형 재표본화해 16비트 `terrain.png`와 manifest 고도 범위를 만듦 |
+| `package.py` | `manifest.json`, 두 GeoJSON, `terrain.png`, 출처·생성 정보를 담은 `README.md` 생성 (`--no-terrain`으로 지형 건너뛰기) |
 
-지형(`terrain.png`)은 이슈 #2에서 추가합니다. 그때까지 manifest의 고도 범위는 0입니다.
+`check`는 평택역·통복천 포함 여부와, 통복천이 지나는 셀의 평균 고도를 전체 평균과 비교해 출력합니다.
 구글 지도 등 재배포가 허용되지 않는 데이터는 쓰지 않습니다 ([클린룸 규칙](../docs/legal/clean-room.md)).

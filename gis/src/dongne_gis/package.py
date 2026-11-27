@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import attribution as attr
 from .buildings import build_buildings
 from .fetch import map_query, overpass
 from .manifest import build_manifest
 from .osm import OsmData
 from .project import LocalProjection
 from .roads import build_roads
+from .terrain import build_terrain
 
 
 def write_geojson(path: Path, features: list[dict]) -> None:
@@ -47,6 +50,7 @@ def build_package(
     command: str,
     cache_dir: Path | None = None,
     refresh: bool = False,
+    terrain: bool = True,
 ) -> dict:
     proj = LocalProjection(lat, lon)
     bbox = proj.bbox(size_m, size_m)
@@ -57,9 +61,11 @@ def build_package(
 
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    # 지형은 이슈 #2에서 채운다. 그때까지 고도 범위는 0으로 둔다.
     size_out = int(size_m) if float(size_m).is_integer() else size_m
-    manifest = build_manifest(name, lat, lon, size_out, size_out, 0, 0)
+    lo = hi = 0.0
+    if terrain:
+        _, lo, hi = build_terrain(out, lat, lon, size_m, size_m, cache_dir=cache_dir)
+    manifest = build_manifest(name, lat, lon, size_out, size_out, lo, hi)
     (out / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
@@ -69,6 +75,8 @@ def build_package(
     s = stats(roads, buildings)
     s["osm_timestamp"] = osm.timestamp
     s["bbox"] = bbox
+    s["terrain"] = terrain
+    s["min_elevation_m"], s["max_elevation_m"] = lo, hi
     (out / "README.md").write_text(_readme(name, lat, lon, size_m, command, s), encoding="utf-8")
     return s
 
@@ -76,16 +84,28 @@ def build_package(
 def _readme(name: str, lat: float, lon: float, size_m: float, command: str, s: dict) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     south, west, north, east = s["bbox"]
+    if s["terrain"]:
+        terrain_line = (
+            f"16비트 그레이스케일 높이맵 {math.ceil(size_m / 30)}×{math.ceil(size_m / 30)} (30m 셀, 행 0 = 북쪽). "
+            f"픽셀 0~65535 = 고도 {s['min_elevation_m']:g}~{s['max_elevation_m']:g} m. "
+            "Copernicus DEM은 지표면 모델(DSM)이라 건물·나무 높이가 섞여 있음"
+        )
+    else:
+        terrain_line = "만들지 않음 (`--no-terrain`)"
     return f"""# {name}
 
 샘플 맵 패키지입니다. 근거: [docs/design/sample-area.md](../../docs/design/sample-area.md)
 
 ## 출처와 라이선스
 
-이 폴더의 데이터는 OpenStreetMap에서 만든 파생 데이터베이스이며
+도로·건물(`roads.geojson`, `buildings.geojson`)은 OpenStreetMap에서 만든 파생 데이터베이스이며
 [Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/)로 배포합니다.
 
 © OpenStreetMap contributors — https://www.openstreetmap.org/copyright
+
+지형(`terrain.png`)은 Copernicus DEM GLO-30에서 만들었습니다.
+
+{attr.COPERNICUS_DEM}
 
 ## 범위
 
@@ -100,7 +120,8 @@ def _readme(name: str, lat: float, lon: float, size_m: float, command: str, s: d
 
 | 파일 | 내용 |
 | --- | --- |
-| `manifest.json` | 메타데이터. `terrain` 블록은 자리만 잡아 둔 값(고도 0~0)이고, `terrain.png`와 실제 고도 범위는 이슈 #2에서 채움 |
+| `manifest.json` | 메타데이터 (origin, 범위, 지형 고도 범위, 출처) |
+| `terrain.png` | {terrain_line} |
 | `roads.geojson` | 도로 LineString {s["road_features"]}개 (OSM way {s["road_ways"]}개, 범위 경계에서 자름) |
 | `buildings.geojson` | 건물 Polygon {s["buildings"]}개 (무게중심이 범위 안인 건물, 자르지 않음) |
 

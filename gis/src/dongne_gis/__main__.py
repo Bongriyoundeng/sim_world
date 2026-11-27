@@ -7,10 +7,13 @@ import shlex
 import sys
 from pathlib import Path
 
+import numpy as np
+
 from .fetch import landmark_query, overpass
 from .landmarks import parse_landmarks
 from .package import build_package
 from .project import LocalProjection
+from .terrain import cells_on_lines, fetch_tile, resample, tiles_for_bbox
 
 
 def _area_args(p: argparse.ArgumentParser) -> None:
@@ -28,6 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     b = sub.add_parser("build", help="OSM에서 맵 패키지 만들기")
     b.add_argument("--name", required=True)
     b.add_argument("--out", type=Path, required=True)
+    b.add_argument("--no-terrain", action="store_true", help="지형(terrain.png) 단계 건너뛰기")
     _area_args(b)
 
     c = sub.add_parser("check", help="평택역·통복천이 범위 안에 있는지 확인")
@@ -39,15 +43,18 @@ def main(argv: list[str] | None = None) -> int:
                  "--lat", str(args.lat), "--lon", str(args.lon), "--size", f"{args.size:g}",
                  "--out", args.out.as_posix()]
         s = build_package(args.name, args.lat, args.lon, args.size, args.out,
-                          shlex.join(shown), args.cache_dir, args.refresh)
+                          shlex.join(shown), args.cache_dir, args.refresh,
+                          terrain=not args.no_terrain)
         print(f"도로 {s['road_features']}개 (way {s['road_ways']}개), 건물 {s['buildings']}개, "
-              f"building:levels {s['buildings_with_levels']}개 ({s['levels_ratio']:.1%}) → {args.out}")
+              f"building:levels {s['buildings_with_levels']}개 ({s['levels_ratio']:.1%}), "
+              f"고도 {s['min_elevation_m']}~{s['max_elevation_m']} m → {args.out}")
         return 0
 
     proj = LocalProjection(args.lat, args.lon)
     resp = overpass(landmark_query(proj.bbox(args.size, args.size)), args.cache_dir, args.refresh)
     ok = {"station": False, "stream": False}
-    for lm in parse_landmarks(resp, proj):
+    landmarks = parse_landmarks(resp, proj)
+    for lm in landmarks:
         xs = [p[0] for p in lm.points]
         ys = [p[1] for p in lm.points]
         inside = lm.inside(args.size, args.size)
@@ -55,6 +62,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{lm.kind:7} {lm.osm_type}/{lm.osm_id} {lm.name}: "
               f"x {min(xs):.0f}..{max(xs):.0f}, y {min(ys):.0f}..{max(ys):.0f} m, 범위 안={inside}")
     print(f"평택역 포함={ok['station']}, 통복천 포함={ok['stream']}")
+
+    # 통복천이 지나는 셀의 평균 고도와 전체 평균 고도 비교 (저지대 확인)
+    tiles = [fetch_tile(t, args.cache_dir) for t in tiles_for_bbox(proj.bbox(args.size, args.size))]
+    heights = resample(tiles, args.lat, args.lon, args.size, args.size)
+    stream = cells_on_lines([lm.points for lm in landmarks if lm.kind == "stream"], args.size, args.size, 30)
+    if stream:
+        on = float(np.mean([heights[r, c] for r, c in stream]))
+        print(f"고도: 전체 평균 {heights.mean():.1f} m (최저 {heights.min():.1f}, 최고 {heights.max():.1f}), "
+              f"통복천 셀 {len(stream)}개 평균 {on:.1f} m, 차이 {on - heights.mean():+.1f} m")
     return 0 if all(ok.values()) else 1
 
 
