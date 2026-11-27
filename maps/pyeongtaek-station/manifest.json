@@ -19,5 +19,15 @@
   "attribution": [
     "© OpenStreetMap contributors (ODbL 1.0)",
     "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"
-  ]
+  ],
+  "landcover": {
+    "file": "landcover.png",
+    "resolution_m": 30,
+    "channels": {
+      "r": "impervious",
+      "g": "canopy",
+      "b": "water"
+    },
+    "scale": 255
+  }
 }

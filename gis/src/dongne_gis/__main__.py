@@ -9,8 +9,10 @@ from pathlib import Path
 
 import numpy as np
 
-from .fetch import landmark_query, overpass
+from .fetch import landmark_query, map_query, overpass
+from .landcover import collect, coverage
 from .landmarks import parse_landmarks
+from .osm import OsmData
 from .package import build_package
 from .project import LocalProjection
 from .terrain import cells_on_lines, fetch_tile, resample, tiles_for_bbox
@@ -48,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"도로 {s['road_features']}개 (way {s['road_ways']}개), 건물 {s['buildings']}개, "
               f"building:levels {s['buildings_with_levels']}개 ({s['levels_ratio']:.1%}), "
               f"고도 {s['min_elevation_m']}~{s['max_elevation_m']} m → {args.out}")
+        lcm = s["landcover_mean"]
+        print(f"토지 피복 평균: 불투수 {lcm['impervious']:.3f}, 녹지 {lcm['canopy']:.3f}, 수면 {lcm['water']:.3f}")
         return 0
 
     proj = LocalProjection(args.lat, args.lon)
@@ -71,6 +75,12 @@ def main(argv: list[str] | None = None) -> int:
         on = float(np.mean([heights[r, c] for r, c in stream]))
         print(f"고도: 전체 평균 {heights.mean():.1f} m (최저 {heights.min():.1f}, 최고 {heights.max():.1f}), "
               f"통복천 셀 {len(stream)}개 평균 {on:.1f} m, 차이 {on - heights.mean():+.1f} m")
+        # 통복천 셀의 수면 비율 (토지 피복)
+        osm = OsmData.from_overpass(overpass(map_query(proj.bbox(args.size, args.size)), args.cache_dir))
+        water = coverage(collect(osm, proj).water, args.size, args.size, 30)
+        ws = [water[r, c] for r, c in stream]
+        print(f"수면 비율: 통복천 셀 평균 {np.mean(ws):.2f} (0.5 이상 셀 {sum(w >= 0.5 for w in ws)}/{len(ws)}), "
+              f"구역 평균 {water.mean():.3f}")
     return 0 if all(ok.values()) else 1
 
 

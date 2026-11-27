@@ -13,6 +13,7 @@ class OsmData:
     nodes: dict[int, tuple[float, float]] = field(default_factory=dict)  # id → (lat, lon)
     ways: dict[int, dict] = field(default_factory=dict)
     relations: dict[int, dict] = field(default_factory=dict)
+    tagged_nodes: dict[int, dict] = field(default_factory=dict)  # 태그가 있는 점 (나무 등)
     timestamp: str | None = None
 
     @classmethod
@@ -22,6 +23,8 @@ class OsmData:
             t = el.get("type")
             if t == "node":
                 d.nodes[el["id"]] = (el["lat"], el["lon"])
+                if el.get("tags"):
+                    d.tagged_nodes[el["id"]] = el
             elif t == "way":
                 # skel 출력(태그 없음)이 body 출력을 덮어쓰지 않게 한다
                 if el["id"] not in d.ways or el.get("tags"):

@@ -25,6 +25,23 @@ pub struct TerrainInfo {
     pub max_elevation_m: f64,
 }
 
+/// 토지 피복 래스터의 채널 의미.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LandcoverChannels {
+    pub r: String,
+    pub g: String,
+    pub b: String,
+}
+
+/// 토지 피복 레이어 정보 (8비트 RGB, terrain과 같은 격자). 값 / `scale` = 셀 면적 비율 0~1.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LandcoverInfo {
+    pub file: String,
+    pub resolution_m: f64,
+    pub channels: LandcoverChannels,
+    pub scale: f64,
+}
+
 /// 맵 패키지 `manifest.json` (v0).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Manifest {
@@ -34,6 +51,9 @@ pub struct Manifest {
     pub crs: String,
     pub extent_m: Extent,
     pub terrain: TerrainInfo,
+    /// 선택 항목. 없는 맵 패키지도 그대로 읽힌다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub landcover: Option<LandcoverInfo>,
     pub attribution: Vec<String>,
 }
 
@@ -54,6 +74,28 @@ mod tests {
         }"#;
         let m: Manifest = serde_json::from_str(json).unwrap();
         assert_eq!(m.name, "sample");
+        let back: Manifest = serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
+        assert_eq!(m, back);
+        assert!(m.landcover.is_none());
+    }
+
+    #[test]
+    fn manifest_with_landcover() {
+        let json = r#"{
+            "format_version": 0,
+            "name": "sample",
+            "origin": {"lat": 37.5, "lon": 127.0},
+            "crs": "local-meters",
+            "extent_m": {"width": 1500, "height": 1500},
+            "terrain": {"file": "terrain.png", "resolution_m": 30, "min_elevation_m": 0, "max_elevation_m": 120},
+            "landcover": {"file": "landcover.png", "resolution_m": 30,
+                          "channels": {"r": "impervious", "g": "canopy", "b": "water"}, "scale": 255},
+            "attribution": ["© OpenStreetMap contributors (ODbL 1.0)"]
+        }"#;
+        let m: Manifest = serde_json::from_str(json).unwrap();
+        let lc = m.landcover.as_ref().unwrap();
+        assert_eq!(lc.file, "landcover.png");
+        assert_eq!(lc.channels.g, "canopy");
         let back: Manifest = serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
         assert_eq!(m, back);
     }
