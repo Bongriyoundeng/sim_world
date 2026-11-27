@@ -327,6 +327,79 @@ impl RoadGraph {
         })
     }
 
+    /// 엣지 위 한 점: 진행 방향 시작점에서 `dist_m`만큼 간 곳을, 진행 방향 오른쪽으로
+    /// 차선 `lane_index`(0 = 중앙선 쪽) 중심만큼 옮긴 좌표와 진행 방향(라디안, x축 기준).
+    /// `lane_width_m`은 표시용 차로 폭. 우측 통행 기준.
+    pub fn lane_point(
+        &self,
+        edge: u32,
+        forward: bool,
+        lane_index: u32,
+        dist_m: f64,
+        lane_width_m: f64,
+    ) -> Option<(f64, f64, f64)> {
+        let e = self.edges.get(edge as usize)?;
+        let pts: Vec<(f64, f64)> = if forward {
+            e.points.clone()
+        } else {
+            e.points.iter().rev().copied().collect()
+        };
+        let mut left = dist_m.max(0.0);
+        let mut seg = (pts[0], pts[1]);
+        for w in pts.windows(2) {
+            seg = (w[0], w[1]);
+            let l = dist(w[0], w[1]);
+            if left <= l {
+                break;
+            }
+            left -= l;
+        }
+        let ((x0, y0), (x1, y1)) = seg;
+        let l = dist(seg.0, seg.1).max(1e-9);
+        let t = (left / l).min(1.0);
+        let (dx, dy) = ((x1 - x0) / l, (y1 - y0) / l);
+        // 양방향 도로는 중앙선(엣지 선)에서 오른쪽으로, 일방통행은 도로 가운데를 기준으로 놓는다
+        let offset = if e.lanes_forward > 0 && e.lanes_backward > 0 {
+            (lane_index as f64 + 0.5) * lane_width_m
+        } else {
+            let n = (e.lanes_forward + e.lanes_backward) as f64;
+            (lane_index as f64 + 0.5 - n / 2.0) * lane_width_m
+        };
+        Some((
+            x0 + dx * l * t + dy * offset,
+            y0 + dy * l * t - dx * offset,
+            dy.atan2(dx),
+        ))
+    }
+
+    /// 좌표에서 `max_m` 안의 가장 가까운 (없애지 않은) 엣지.
+    pub fn nearest_edge(&self, x: f64, y: f64, max_m: f64) -> Option<u32> {
+        let seg_dist = |a: (f64, f64), b: (f64, f64)| {
+            let (vx, vy) = (b.0 - a.0, b.1 - a.1);
+            let len2 = vx * vx + vy * vy;
+            let t = if len2 > 0.0 {
+                (((x - a.0) * vx + (y - a.1) * vy) / len2).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            (a.0 + vx * t - x).hypot(a.1 + vy * t - y)
+        };
+        self.edges
+            .iter()
+            .filter(|e| !e.removed)
+            .map(|e| {
+                let d = e
+                    .points
+                    .windows(2)
+                    .map(|w| seg_dist(w[0], w[1]))
+                    .fold(f64::INFINITY, f64::min);
+                (d, e.id)
+            })
+            .filter(|&(d, _)| d <= max_m)
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
+            .map(|(_, id)| id)
+    }
+
     /// 좌표에서 `radius_m` 안의 가장 가까운 노드 (동률이면 번호가 작은 노드).
     pub fn nearest_node(&self, x: f64, y: f64, radius_m: f64) -> Option<u32> {
         self.nodes
@@ -666,6 +739,28 @@ mod tests {
         assert_eq!(lanes_by_direction("service", None, false), (1, 1));
         assert_eq!(lanes_by_direction("tertiary", Some(3), true), (3, 0));
         assert_eq!(lanes_by_direction("tertiary", Some(0), true), (2, 0));
+    }
+
+    #[test]
+    fn lane_point_and_nearest_edge() {
+        let g = RoadGraph::from_geojson(&crossing(), 200.0, 200.0).unwrap();
+        // 가로 도로 서쪽 구간 (-100,0)→(0,0), 양방향 2+2차선
+        let w = g
+            .edges
+            .iter()
+            .find(|e| e.osm_id == 10 && e.length_m == 100.0)
+            .unwrap();
+        let (x, y, h) = g.lane_point(w.id, true, 0, 25.0, 3.0).unwrap();
+        assert!((x - -75.0).abs() < 1e-9 && (y - -1.5).abs() < 1e-9 && h.abs() < 1e-9);
+        // 역방향 1번 차선: 동→서로 25 m, 진행 방향 오른쪽(북쪽)으로 4.5 m
+        let (x, y, _) = g.lane_point(w.id, false, 1, 25.0, 3.0).unwrap();
+        assert!((x - -25.0).abs() < 1e-9 && (y - 4.5).abs() < 1e-9);
+        // 길이를 넘으면 끝점
+        let (x, _, _) = g.lane_point(w.id, true, 0, 500.0, 3.0).unwrap();
+        assert!((x - 0.0).abs() < 1e-9);
+
+        assert_eq!(g.nearest_edge(-50.0, 3.0, 5.0), Some(w.id));
+        assert_eq!(g.nearest_edge(-50.0, 30.0, 5.0), None);
     }
 
     #[test]

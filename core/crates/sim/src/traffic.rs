@@ -80,6 +80,9 @@ pub struct Vehicle {
     /// 지나간 차선 (클라이언트 재생·검증용)
     pub trace: Vec<u32>,
     at_end: bool,
+    /// 지금 차선에서 주행을 시작한 시각 (교차로 통과 후)
+    lane_start_ms: u64,
+    lane_travel_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -352,6 +355,8 @@ impl Traffic {
             step: None,
             lane: None,
             trace: Vec::new(),
+            lane_start_ms: 0,
+            lane_travel_ms: 0,
             at_end: false,
         });
         self.schedule(depart_ms.max(self.now_ms), Event::Depart(id));
@@ -504,9 +509,35 @@ impl Traffic {
             veh.trace.push(lane);
             veh.at_end = false;
             veh.state = VehicleState::Crossing;
+            veh.lane_start_ms = t;
+            veh.lane_travel_ms = travel;
             self.schedule(t + travel, Event::ReachEnd(v));
             return;
         }
+    }
+
+    /// 차선 위 차량의 위치: (차량, 차선, 차선 시작점에서의 거리 m).
+    /// 주행 중이면 들어온 뒤 지난 시간에 비례해 나아가고, 앞차가 있으면 그 뒤
+    /// (대기열 순번 × 차량 간격)에 선다. 교차로를 지나는 2초 동안은 차선 시작점에 있다.
+    /// 화면 표시용이며 시뮬레이션 결과에는 영향이 없다.
+    pub fn lane_positions(&self, g: &RoadGraph) -> Vec<(u32, u32, f64)> {
+        let mut out = Vec::new();
+        for (l, s) in self.lanes.iter().enumerate() {
+            let len = g.lanes[l].length_m;
+            for (idx, &v) in s.queue.iter().enumerate() {
+                let veh = &self.vehicles[v as usize];
+                let elapsed = self.now_ms.saturating_sub(veh.lane_start_ms) as f64;
+                let progress = if veh.at_end || veh.lane_travel_ms == 0 {
+                    1.0
+                } else {
+                    (elapsed / veh.lane_travel_ms as f64).clamp(0.0, 1.0)
+                };
+                let behind = len - idx as f64 * dongne_world::road_graph::VEHICLE_SPACING_M;
+                out.push((v, l as u32, (progress * len).min(behind).max(0.0)));
+            }
+        }
+        out.sort_unstable_by_key(|&(v, _, _)| v);
+        out
     }
 
     pub fn stats(&self) -> TrafficStats {

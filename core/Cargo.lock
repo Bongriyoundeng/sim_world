@@ -17,6 +17,7 @@ dependencies = [
  "dongne-sim-core",
  "dongne-world",
  "godot",
+ "serde_json",
 ]
 
 [[package]]
