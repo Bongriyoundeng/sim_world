@@ -16,6 +16,14 @@
 
 동네 한 곳에서 도로 건설, 구역 지정, 차량 이동이 되는 데모. 데모 GIF로 기여자를 모집합니다.
 
-## 2단계 이후
+작업 목록: [design/phase1-backlog.md](design/phase1-backlog.md)
 
-인구·경제와 AI 보좌관, 그다음 LLM 페르소나와 모드 지원.
+## 2단계: 인구·경제·기후·AI 보좌관
+
+- 인구·경제, 재정 지표
+- 기후 변화: 폭염·집중호우 침수 격자 모델과 기후 정책 ([design/climate.md](design/climate.md), [ADR 0003](adr/0003-climate-system.md))
+- AI 보좌관 브리핑
+
+## 3단계 이후
+
+LLM 페르소나 확대, 모드 지원(해수면 상승 등 추가 위험).

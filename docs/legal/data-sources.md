@@ -4,6 +4,8 @@
 | --- | --- | --- | --- |
 | OpenStreetMap | 도로, 건물, 토지 이용 | ODbL 1.0 | Overpass API, Geofabrik 추출본 |
 | Copernicus DEM GLO-30 | 지형(30m 해상도) | Copernicus DEM 라이선스 (무료, 전 세계) | Copernicus Data Space / AWS Open Data |
+| 기상청 기후변화 시나리오 (예정) | 기후 시나리오(SSP) | 공공누리 제1유형: 출처 표시, 상업 이용·변형 가능 — 개별 자료 표시 확인 | 기후정보포털 |
+| Copernicus Climate Data Store (예정) | 기후 시나리오 교차 검증 | CC-BY 4.0 (2025-07-02부터). CMIP6 원자료는 파일별 라이선스, 비상업 조건 자료는 사용 금지 | Climate Data Store |
 
 ## 규칙
 
