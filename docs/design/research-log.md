@@ -78,3 +78,13 @@
 - 제16조 ③ 보도의 유효폭은 최소 2 m 이상 (지방지역 도로와 도시지역 국지도로는 불가피하면 1.5 m 이상).
 - 쓰인 곳: `gis/src/dongne_gis/landcover.py`. 차로 폭 3.00 m(원도심 도로를 설계속도 80 km/h 미만으로 봄), motorway·trunk 3.25 m, footway 2.0 m. 이 값은 "최소" 폭이므로 실제 포장 면적보다 작게 추정될 수 있음 (보수적).
 - **가정 (근거 없음)**: `lanes` 태그가 없을 때 유형별 차로 수, pedestrian 4 m, cycleway·path 1.5 m, track 3 m, 나무 점 수관 반경 3 m, 가로수 줄 폭 6 m, 하천 선 폭(river 20 m, stream 8 m, canal 8 m, drain 2 m, ditch 1.5 m). 측정 자료를 찾으면 교체.
+
+## 도로 그래프 기본값 (1단계 교통)
+
+<a id="road-lanes"></a>
+**가정 (근거 없음)** — `core/crates/world/src/road_graph.rs`. 측정·법령 근거를 찾으면 교체합니다.
+- `lanes` 태그가 없을 때 양방향 합계 차선 수: motorway·trunk·primary 4, secondary·tertiary·unclassified·residential 2, `*_link`·living_street·service 1. 토지 피복의 도로 폭(`gis/src/dongne_gis/landcover.py`)과 같은 값.
+- 양방향 도로는 차선을 반씩 나누고 방향별 최소 1 (1차로 service·living_street도 양방향 통행으로 봄).
+- 대기열 용량용 차량 간격 7.5 m (승용차 길이 + 정지 간격).
+- 자유 흐름 속도 (km/h): motorway 100, trunk 80, primary 60, secondary·tertiary 50, unclassified·residential 30, living_street·service 20. 맵 패키지에 `maxspeed`가 들어오면 그 값을 우선하도록 바꿀 예정.
+- 참고: 차로 **폭**은 법령 근거가 있음 ([road-width](#road-width)). 차로 **수**와 속도는 아직 없음.
