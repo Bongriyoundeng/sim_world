@@ -38,3 +38,14 @@ cd core && cargo test
 - 파라미터와 가정: [research-log.md](../docs/design/research-log.md#traffic-queue)
 
 `maps/pyeongtaek-station`에서 차량 100대(시드 42, 5분 동안 출발): 모두 도착, 평균 이동 시간 139.6 초, 최장 361.8 초. 같은 시드로 두 번 돌리면 모든 차량 상태가 같습니다 (`crates/sim/tests/pyeongtaek_vehicles.rs`).
+
+## 명령 (`Simulation::submit`)
+
+`AddRoad`·`RemoveRoad`·`SetZone`을 [schema/commands](../schema/commands/README.md) 형식으로 받습니다. 다음 `step` 시작 때 넣은 순서대로 적용하고, 결과(`applied`/`rejected`)는 `Simulation::outcomes`에 남습니다.
+
+- 도로 그래프는 노드·엣지·차선을 뒤에 붙이기만 하고, 없앤 엣지는 `removed`로 표시해 ID가 바뀌지 않습니다. `Traffic::sync`가 새 부분을 교통 모델에 반영합니다.
+- 도로가 바뀌면 영향받는 차량의 남은 경로를 다시 찾습니다 (#5의 재탐색 재사용).
+- 구역은 `World::zones`(terrain과 같은 셀 격자)에 저장합니다. 통근 수요 생성(#7)의 입력입니다.
+- 평택역 맵에서 100대(시드 7)가 가장 많이 지나는 엣지를 출발 전에 없애면 26대가 경로를 바꾸고 100대 모두 도착합니다 (평균 149.0 초). 같은 명령을 두 번 돌리면 결과가 같습니다 (`crates/sim/tests/commands.rs`).
+- 가정: [research-log.md](../docs/design/research-log.md#commands)
+

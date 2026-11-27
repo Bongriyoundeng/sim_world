@@ -1,0 +1,8 @@
+{
+  "type": "add_road",
+  "from": { "node": 12 },
+  "to": { "point": { "x": 250.0, "y": -40.5 } },
+  "highway": "residential",
+  "lanes": 2,
+  "oneway": false
+}

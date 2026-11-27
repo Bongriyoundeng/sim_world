@@ -88,6 +88,8 @@ struct ArcInfo {
     head: u32,
     travel_ms: u64,
     lanes: Vec<u32>,
+    /// 명령으로 없앤 도로
+    removed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -132,8 +134,28 @@ fn reverse(arc: u32) -> u32 {
 
 impl Traffic {
     pub fn new(g: &RoadGraph) -> Self {
-        let mut arcs: Vec<Option<ArcInfo>> = vec![None; g.edges.len() * 2];
-        for e in &g.edges {
+        let mut t = Self {
+            arcs: Vec::new(),
+            node_out: Vec::new(),
+            lanes: Vec::new(),
+            nodes: Vec::new(),
+            vehicles: Vec::new(),
+            events: BinaryHeap::new(),
+            seq: 0,
+            now_ms: 0,
+        };
+        t.sync(g);
+        t
+    }
+
+    /// 도로 그래프에 새로 생긴 노드·엣지·차선을 반영한다 (기존 것은 그대로).
+    /// 그래프의 노드·엣지·차선은 뒤에 붙기만 하므로 ID가 그대로 유지된다.
+    pub fn sync(&mut self, g: &RoadGraph) {
+        self.nodes.resize(g.nodes.len(), NodeState::default());
+        self.node_out.resize(g.nodes.len(), Vec::new());
+        let first_new_edge = self.arcs.len() / 2;
+        self.arcs.resize(g.edges.len() * 2, None);
+        for e in &g.edges[first_new_edge..] {
             let speed_ms = e.free_speed_kmh / 3.6 / 1000.0; // m per ms
             let travel_ms = (e.length_m / speed_ms).ceil().max(1.0) as u64;
             for (forward, n) in [(true, e.lanes_forward), (false, e.lanes_backward)] {
@@ -145,43 +167,83 @@ impl Traffic {
                 } else {
                     (e.to, e.from)
                 };
-                arcs[(e.id * 2 + u32::from(!forward)) as usize] = Some(ArcInfo {
+                let arc = e.id * 2 + u32::from(!forward);
+                self.arcs[arc as usize] = Some(ArcInfo {
                     tail,
                     head,
                     travel_ms,
                     lanes: Vec::new(),
+                    removed: e.removed,
                 });
+                let out = &mut self.node_out[tail as usize];
+                out.push(arc);
+                out.sort_unstable();
             }
         }
-        let mut lanes = Vec::with_capacity(g.lanes.len());
-        for l in &g.lanes {
+        let first_new_lane = self.lanes.len();
+        for l in &g.lanes[first_new_lane..] {
             let arc = l.edge * 2 + u32::from(!l.forward);
-            if let Some(a) = arcs[arc as usize].as_mut() {
+            if let Some(a) = self.arcs[arc as usize].as_mut() {
                 a.lanes.push(l.id);
             }
-            lanes.push(LaneState {
+            self.lanes.push(LaneState {
                 arc,
                 capacity: l.capacity,
                 blocked: false,
                 queue: VecDeque::new(),
             });
         }
-        let mut node_out = vec![Vec::new(); g.nodes.len()];
-        for (i, a) in arcs.iter().enumerate() {
-            if let Some(a) = a {
-                node_out[a.tail as usize].push(i as u32);
+    }
+
+    /// 엣지의 두 방향을 없앤 것으로 표시한다. 그 위의 차량은 끝까지 빠져나가고, 새로 들어가지 못한다.
+    pub fn remove_edge(&mut self, edge: u32) {
+        for arc in [edge * 2, edge * 2 + 1] {
+            if let Some(a) = self.arcs.get_mut(arc as usize).and_then(Option::as_mut) {
+                a.removed = true;
             }
         }
-        Self {
-            arcs,
-            node_out,
-            lanes,
-            nodes: vec![NodeState::default(); g.nodes.len()],
-            vehicles: Vec::new(),
-            events: BinaryHeap::new(),
-            seq: 0,
-            now_ms: 0,
+    }
+
+    /// 아직 도착하지 않은 차량의 남은 경로를 다음 결정 지점(지금 차선의 끝 노드, 출발 전이면
+    /// 출발 노드)부터 다시 찾는다. `only_if_uses`를 주면 남은 경로에 그 arc가 있는 차량만.
+    /// 경로가 바뀐 차량 수를 돌려준다. 새 경로가 없으면 원래 경로를 두고, 교차로에서 다시 찾는다.
+    pub fn reroute(&mut self, only_if_uses: Option<&[u32]>) -> u32 {
+        let mut changed = 0;
+        for v in 0..self.vehicles.len() {
+            let veh = &self.vehicles[v];
+            if veh.state == VehicleState::Arrived {
+                continue;
+            }
+            let keep = veh.step.map_or(0, |s| s + 1);
+            let remaining = &veh.route[keep..];
+            if remaining.is_empty() {
+                continue;
+            }
+            if let Some(arcs) = only_if_uses {
+                if !remaining.iter().any(|a| arcs.contains(a)) {
+                    continue;
+                }
+            }
+            let (node, came) = match veh.step {
+                Some(s) => (self.arc(veh.route[s]).head, Some(veh.route[s])),
+                None => (veh.origin, None),
+            };
+            let Some(new) = self.route(node, veh.dest, came) else {
+                continue;
+            };
+            if new != remaining {
+                let veh = &mut self.vehicles[v];
+                veh.route.truncate(keep);
+                veh.route.extend(new);
+                changed += 1;
+            }
         }
+        // 기다리던 차량이 새 경로로 갈 수 있게 교차로를 다시 본다
+        let waiting: VecDeque<u32> = (0..self.nodes.len() as u32)
+            .filter(|&n| !self.nodes[n as usize].waiting.is_empty())
+            .collect();
+        self.process(waiting);
+        changed
     }
 
     pub fn now_ms(&self) -> u64 {
@@ -195,7 +257,7 @@ impl Traffic {
     fn arc_open(&self, a: u32) -> bool {
         self.arcs[a as usize]
             .as_ref()
-            .is_some_and(|x| x.lanes.iter().any(|&l| !self.lanes[l as usize].blocked))
+            .is_some_and(|x| !x.removed && x.lanes.iter().any(|&l| !self.lanes[l as usize].blocked))
     }
 
     /// 차선을 막거나 연다. 이미 들어간 차량은 그대로 빠져나가고, 새 차량은 들어가지 못한다.
@@ -393,6 +455,7 @@ impl Traffic {
                 let s = &self.lanes[l as usize];
                 !s.blocked && (s.queue.len() as u32) < s.capacity
             })
+            .filter(|_| !self.arc(arc).removed)
             .min_by_key(|&l| (self.lanes[l as usize].queue.len(), l))
     }
 

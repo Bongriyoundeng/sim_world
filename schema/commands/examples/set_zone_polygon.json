@@ -1,0 +1,5 @@
+{
+  "type": "set_zone",
+  "area": { "polygon": [ { "x": 0, "y": 0 }, { "x": 120, "y": 0 }, { "x": 120, "y": 90 }, { "x": 0, "y": 90 } ] },
+  "zone": "commercial"
+}

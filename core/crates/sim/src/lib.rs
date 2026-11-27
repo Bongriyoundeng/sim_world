@@ -2,6 +2,8 @@
 
 use std::cmp::Reverse;
 
+pub use dongne_api::{Command, CommandOutcome, CommandResult, RoadEnd};
+use dongne_world::road_graph::is_vehicle_road;
 use dongne_world::World;
 
 pub mod traffic;
@@ -9,6 +11,10 @@ pub use traffic::{Rng, Traffic, TrafficStats, Vehicle, VehicleState};
 
 /// 틱 하나의 시뮬레이션 시간 (ms, 가정). 교통 이벤트는 틱 경계까지 처리된다.
 pub const TICK_MS: u64 = 100;
+/// 도로 추가 명령의 좌표 끝을 기존 노드에 붙이는 반경 (m, 가정).
+pub const ROAD_SNAP_RADIUS_M: f64 = 5.0;
+/// 새 도로의 최소 길이 (m, 가정).
+pub const MIN_ROAD_LENGTH_M: f64 = 1.0;
 
 /// 시뮬레이션 상태.
 #[derive(Debug)]
@@ -16,6 +22,10 @@ pub struct Simulation {
     pub world: World,
     pub traffic: Traffic,
     tick: u64,
+    pending: Vec<(u64, Command)>,
+    next_command: u64,
+    /// 처리한 명령의 결과 (처리 순서)
+    pub outcomes: Vec<CommandOutcome>,
 }
 
 impl Simulation {
@@ -25,6 +35,9 @@ impl Simulation {
             world,
             traffic,
             tick: 0,
+            pending: Vec::new(),
+            next_command: 0,
+            outcomes: Vec::new(),
         }
     }
 
@@ -33,10 +46,135 @@ impl Simulation {
         self.tick
     }
 
-    /// n틱 진행한다. 그 시각까지의 교통 이벤트를 처리한다.
+    /// 명령을 넣는다. 다음 `step`이 시작될 때(지금 틱 경계에서) 넣은 순서대로 적용되고,
+    /// 결과는 `outcomes`에 남는다. 돌려주는 번호는 결과의 `id`와 같다.
+    pub fn submit(&mut self, command: Command) -> u64 {
+        let id = self.next_command;
+        self.next_command += 1;
+        self.pending.push((id, command));
+        id
+    }
+
+    /// n틱 진행한다. 먼저 쌓인 명령을 적용하고, 그 시각까지의 교통 이벤트를 처리한다.
     pub fn step(&mut self, n_ticks: u64) {
+        for (id, command) in std::mem::take(&mut self.pending) {
+            let result = self.apply(&command);
+            self.outcomes.push(CommandOutcome {
+                id,
+                tick: self.tick,
+                result,
+            });
+        }
         self.tick += n_ticks;
         self.traffic.run_until(self.tick * TICK_MS);
+    }
+
+    fn apply(&mut self, command: &Command) -> CommandResult {
+        match self.try_apply(command) {
+            Ok(r) => r,
+            Err(reason) => CommandResult::Rejected { reason },
+        }
+    }
+
+    fn try_apply(&mut self, command: &Command) -> Result<CommandResult, String> {
+        match command {
+            Command::AddRoad {
+                from,
+                to,
+                highway,
+                lanes,
+                oneway,
+            } => {
+                if !is_vehicle_road(highway) {
+                    return Err(format!("차량 도로 유형이 아님: {highway}"));
+                }
+                if *lanes == Some(0) {
+                    return Err("차선 수는 1 이상이어야 함".into());
+                }
+                let a = self.resolve_end(from)?;
+                let b = self.resolve_end(to)?;
+                let length = (a.1 .0 - b.1 .0).hypot(a.1 .1 - b.1 .1);
+                if a.0.is_some() && a.0 == b.0 || length < MIN_ROAD_LENGTH_M {
+                    return Err(format!(
+                        "두 끝이 너무 가까움 ({length:.2} m < {MIN_ROAD_LENGTH_M} m)"
+                    ));
+                }
+                let g = &mut self.world.road_graph;
+                let mut new_nodes = Vec::new();
+                let mut node = |end: (Option<u32>, (f64, f64)), g: &mut dongne_world::RoadGraph| {
+                    end.0.unwrap_or_else(|| {
+                        let id = g.add_node(end.1 .0, end.1 .1);
+                        new_nodes.push(id);
+                        id
+                    })
+                };
+                let na = node(a, g);
+                let nb = node(b, g);
+                let edge = g.add_edge(na, nb, highway, *lanes, *oneway);
+                self.traffic.sync(&self.world.road_graph);
+                let rerouted = self.traffic.reroute(None);
+                Ok(CommandResult::Applied {
+                    edge: Some(edge),
+                    new_nodes,
+                    cells: 0,
+                    rerouted,
+                })
+            }
+            Command::RemoveRoad { edge } => {
+                if !self.world.road_graph.remove_edge(*edge) {
+                    return Err(format!("없거나 이미 없앤 엣지: {edge}"));
+                }
+                self.traffic.remove_edge(*edge);
+                let rerouted = self.traffic.reroute(Some(&[edge * 2, edge * 2 + 1]));
+                Ok(CommandResult::Applied {
+                    edge: Some(*edge),
+                    new_nodes: Vec::new(),
+                    cells: 0,
+                    rerouted,
+                })
+            }
+            Command::SetZone { area, zone } => {
+                let cells = self.world.zones.resolve(area)?;
+                self.world.zones.set(&cells, *zone);
+                Ok(CommandResult::Applied {
+                    edge: None,
+                    new_nodes: Vec::new(),
+                    cells: cells.len() as u32,
+                    rerouted: 0,
+                })
+            }
+        }
+    }
+
+    /// 도로 끝을 (기존 노드, 좌표)로 바꾼다. 좌표가 기존 노드 가까이면 그 노드를 쓴다.
+    fn resolve_end(&self, end: &RoadEnd) -> Result<(Option<u32>, (f64, f64)), String> {
+        let g = &self.world.road_graph;
+        match *end {
+            RoadEnd::Node(id) => {
+                let n = g
+                    .nodes
+                    .get(id as usize)
+                    .ok_or_else(|| format!("없는 노드: {id}"))?;
+                Ok((Some(id), (n.x, n.y)))
+            }
+            RoadEnd::Point(p) => {
+                let e = &self.world.manifest.extent_m;
+                if !p.x.is_finite()
+                    || !p.y.is_finite()
+                    || p.x.abs() > e.width / 2.0
+                    || p.y.abs() > e.height / 2.0
+                {
+                    return Err(format!("좌표 ({}, {})가 맵 범위 밖", p.x, p.y));
+                }
+                match g.nearest_node(p.x, p.y, ROAD_SNAP_RADIUS_M) {
+                    Some(id) => {
+                        let n = &g.nodes[id as usize];
+                        Ok((Some(id), (n.x, n.y)))
+                    }
+                    None => Ok((None, (p.x, p.y))),
+                }
+            }
+        }
     }
 
     /// 가장 큰 강연결 요소 안에서 무작위 출발·도착 노드로 차량 `n`대를 예약한다.
