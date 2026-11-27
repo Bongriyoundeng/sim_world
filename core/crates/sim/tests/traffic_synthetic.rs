@@ -186,3 +186,30 @@ fn no_u_turn_unless_dead_end() {
     let from_d = t.route(d, a, Some(r[1])).unwrap();
     assert_eq!(from_d[0], r[1] ^ 1);
 }
+
+#[test]
+fn lane_positions_queue_behind_each_other() {
+    // A →(100 m)→ B →(100 m)→ C, B→C 차선을 막아 A→B 끝에 줄을 세운다
+    let g = graph(&[
+        feature(1, Some(1), true, &[(0.0, 0.0), (100.0, 0.0)]),
+        feature(2, Some(1), true, &[(100.0, 0.0), (200.0, 0.0)]),
+    ]);
+    let (a, c) = (node(&g, 0.0, 0.0), node(&g, 200.0, 0.0));
+    let mut t = Traffic::new(&g);
+    for i in 0..3 {
+        t.add_trip(a, c, i * 3_000).unwrap();
+    }
+    // 5초: 첫 차는 A→B를 달리는 중, 둘째 차는 막 들어와 교차로를 지나는 중(시작점)
+    t.run_until(5_000);
+    let p = t.lane_positions(&g);
+    assert_eq!(p.len(), 2);
+    assert!(p[0].2 > 0.0 && p[0].2 < 100.0);
+    assert_eq!(p[1].2, 0.0);
+
+    t.set_lane_blocked(lanes_of(&g, 2)[0], true);
+    t.run_until(120_000);
+    let p = t.lane_positions(&g);
+    let d: Vec<f64> = p.iter().map(|x| x.2).collect();
+    assert_eq!(p.len(), 3, "세 대 모두 A→B에서 기다림: {p:?}");
+    assert_eq!(d, vec![100.0, 92.5, 85.0]);
+}

@@ -34,6 +34,7 @@ fn small_world() -> World {
         road_graph: RoadGraph::from_geojson(&json, 300.0, 300.0).unwrap(),
         zones: ZoneMap::new(300.0, 300.0, 30.0),
         manifest,
+        buildings: Vec::new(),
     }
 }
 

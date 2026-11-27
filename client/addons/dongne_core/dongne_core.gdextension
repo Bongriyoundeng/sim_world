@@ -1,0 +1,13 @@
+; 코어 GDExtension (core/crates/godot). 라이브러리는 tools/build_godot_addon.py가 bin/에 복사하며 커밋하지 않는다.
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.3
+reloadable = true
+
+[libraries]
+windows.debug.x86_64 = "res://addons/dongne_core/bin/dongne_godot.dll"
+windows.release.x86_64 = "res://addons/dongne_core/bin/dongne_godot.dll"
+linux.debug.x86_64 = "res://addons/dongne_core/bin/libdongne_godot.so"
+linux.release.x86_64 = "res://addons/dongne_core/bin/libdongne_godot.so"
+macos.debug = "res://addons/dongne_core/bin/libdongne_godot.dylib"
+macos.release = "res://addons/dongne_core/bin/libdongne_godot.dylib"

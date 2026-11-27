@@ -3,20 +3,20 @@
 ## 0단계 (1~2개월): 동네를 화면에 띄우기
 
 - [x] 라이선스, 레포 구조 확정
-- [ ] 맵 패키지 v0 스키마
-- [ ] `gis/`: 샘플 동네 → 맵 패키지 변환
-- [ ] `core/`: 맵 패키지 읽기, 도로 그래프
-- [ ] `core/crates/py`: Python에서 코어 호출
-- [ ] `client/`: 지형·도로·건물 표시
-- [ ] CI: 폴더별 빌드·테스트, 스키마·출처 검사
+- [x] 맵 패키지 v0 스키마
+- [x] `gis/`: 샘플 동네 → 맵 패키지 변환 (#1·#2·#3)
+- [x] `core/`: 맵 패키지 읽기, 도로 그래프 (#4)
+- [x] `core/crates/py`: Python에서 코어 호출 (#8)
+- [x] `client/`: 지형·도로·건물 표시 (#9)
+- [x] CI: 폴더별 빌드·테스트, 스키마·출처 검사
 
-완료 기준: 샘플 동네가 Godot 화면에 보이는 캡처
+완료 기준: 샘플 동네가 Godot 화면에 보이는 캡처 — [완료](images/pyeongtaek-station-map-view.png) (2026-11-27)
 
 ## 1단계 (3~4개월): 도로·구역·차량 데모
 
 동네 한 곳에서 도로 건설, 구역 지정, 차량 이동이 되는 데모. 데모 GIF로 기여자를 모집합니다.
 
-작업 목록: [design/phase1-backlog.md](design/phase1-backlog.md)
+작업 목록: [design/phase1-backlog.md](design/phase1-backlog.md) — 이슈 #1~#14 모두 완료 (2026-11-27). 데모 GIF: [images/demo.gif](images/demo.gif). 밸런스와 남은 가정: [design/balance.md](design/balance.md)
 
 ## 2단계: 인구·경제·기후·AI 보좌관
 

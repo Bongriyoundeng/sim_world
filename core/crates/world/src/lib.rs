@@ -5,8 +5,10 @@ use std::path::Path;
 
 pub use dongne_api::Manifest;
 
+pub mod buildings;
 pub mod road_graph;
 pub mod zones;
+pub use buildings::Building;
 pub use road_graph::{GraphError, GraphStats, RoadGraph};
 pub use zones::{Zone, ZoneMap};
 
@@ -45,6 +47,8 @@ pub struct World {
     pub road_graph: RoadGraph,
     /// 셀 단위 구역 지정 (terrain과 같은 격자). 처음에는 비어 있다.
     pub zones: ZoneMap,
+    /// `buildings.geojson`의 건물. 파일이 없으면 비어 있다.
+    pub buildings: Vec<Building>,
 }
 
 /// `manifest.json` 문자열을 검증해 읽는다.
@@ -76,10 +80,18 @@ pub fn load_map(dir: &Path) -> Result<World, LoadError> {
         manifest.extent_m.height,
         manifest.terrain.resolution_m,
     );
+    let buildings_path = dir.join("buildings.geojson");
+    let buildings = if buildings_path.exists() {
+        let json = std::fs::read_to_string(buildings_path).map_err(LoadError::Io)?;
+        buildings::parse_buildings(&json).map_err(LoadError::Roads)?
+    } else {
+        Vec::new()
+    };
     Ok(World {
         manifest,
         road_graph,
         zones,
+        buildings,
     })
 }
 
