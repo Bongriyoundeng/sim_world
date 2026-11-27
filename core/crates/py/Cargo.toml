@@ -1,0 +1,22 @@
+[package]
+name = "dongne-py"
+description = "Python 바인딩 (PyO3): import dongne_core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "dongne_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+dongne-api.workspace = true
+dongne-world.workspace = true
+dongne-sim-core.workspace = true
+serde_json.workspace = true
+pyo3 = { version = "0.30.1", features = ["abi3-py312"] }
+
+[features]
+# maturin이 켠다. 켜면 libpython에 링크하지 않는 확장 모듈로 빌드된다.
+extension-module = ["pyo3/extension-module"]
