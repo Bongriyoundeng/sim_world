@@ -10,6 +10,7 @@ core/crates/py/.venv/Scripts/python ai/experiments/road_closure.py --top 5 --out
 | 스크립트 | 이슈 | 내용 |
 | --- | --- | --- |
 | `road_closure.py` | #11 | 출퇴근 하루에서 많이 쓰인 도로 상위 N개를 하나씩 막고 평균 통근 시간 변화 비교 |
+| `balance_sweep.py` | #13 | 주거 셀당 통근자 수를 바꿔 통근 시간·혼잡 비교. 결과와 해석은 [docs/design/balance.md](../../docs/design/balance.md) |
 
 설정은 `tests/scenarios/scenario.py`와 같습니다: 평택역 맵(OSM 2026-11-27), 남서쪽 주거 169셀·역 앞 업무 100셀·동쪽 상업 100셀, 출퇴근 수요 시드 2026, 도로는 출발 전(첫 틱)에 막음.
 
