@@ -22,12 +22,21 @@ def _bbox_str(bbox: BBox) -> str:
 
 
 def map_query(bbox: BBox) -> str:
-    """bbox 안의 highway way, building way/relation과 그 구성 요소를 한 번에 받는 쿼리."""
+    """bbox 안의 도로·건물·토지 피복 요소와 그 구성 요소를 한 번에 받는 쿼리.
+
+    - 도로: highway way / 건물: building way·relation (#1)
+    - 토지 피복 (#3): 녹지·나무, 수면·하천, 포장 면적(주차장 등)
+    """
     b = _bbox_str(bbox)
     return (
-        "[out:json][timeout:180];\n"
-        f'(way["highway"]({b});way["building"]({b});relation["building"]({b}););\n'
-        "out body;\n>;\nout skel qt;\n"
+        "[out:json][timeout:180];\n("
+        f'way["highway"]({b});way["building"]({b});relation["building"]({b});'
+        f'nwr["natural"~"^(wood|tree_row|tree|scrub|water)$"]({b});'
+        f'nwr["landuse"~"^(forest|grass|meadow|park|village_green|recreation_ground)$"]({b});'
+        f'nwr["leisure"~"^(park|garden)$"]({b});'
+        f'nwr["amenity"~"^(parking|fuel|marketplace|bus_station)$"]({b});'
+        f'nwr["waterway"]({b});'
+        ");\nout body;\n>;\nout skel qt;\n"
     )
 
 

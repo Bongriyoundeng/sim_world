@@ -14,6 +14,7 @@ from .manifest import build_manifest
 from .osm import OsmData
 from .project import LocalProjection
 from .roads import build_roads
+from .landcover import build_landcover, landcover_info
 from .terrain import build_terrain
 
 
@@ -65,7 +66,8 @@ def build_package(
     lo = hi = 0.0
     if terrain:
         _, lo, hi = build_terrain(out, lat, lon, size_m, size_m, cache_dir=cache_dir)
-    manifest = build_manifest(name, lat, lon, size_out, size_out, lo, hi)
+    lc = build_landcover(out, osm, proj, size_m, size_m)
+    manifest = build_manifest(name, lat, lon, size_out, size_out, lo, hi, landcover=landcover_info())
     (out / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
@@ -77,6 +79,8 @@ def build_package(
     s["bbox"] = bbox
     s["terrain"] = terrain
     s["min_elevation_m"], s["max_elevation_m"] = lo, hi
+    s["landcover_mean"] = {k: float(v.mean()) for k, v in lc.items()}
+    s["landcover"] = lc
     (out / "README.md").write_text(_readme(name, lat, lon, size_m, command, s), encoding="utf-8")
     return s
 
@@ -84,6 +88,7 @@ def build_package(
 def _readme(name: str, lat: float, lon: float, size_m: float, command: str, s: dict) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     south, west, north, east = s["bbox"]
+    lcm = s["landcover_mean"]
     if s["terrain"]:
         terrain_line = (
             f"16비트 그레이스케일 높이맵 {math.ceil(size_m / 30)}×{math.ceil(size_m / 30)} (30m 셀, 행 0 = 북쪽). "
@@ -98,7 +103,7 @@ def _readme(name: str, lat: float, lon: float, size_m: float, command: str, s: d
 
 ## 출처와 라이선스
 
-도로·건물(`roads.geojson`, `buildings.geojson`)은 OpenStreetMap에서 만든 파생 데이터베이스이며
+도로·건물·토지 피복(`roads.geojson`, `buildings.geojson`, `landcover.png`)은 OpenStreetMap에서 만든 파생 데이터베이스이며
 [Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/)로 배포합니다.
 
 © OpenStreetMap contributors — https://www.openstreetmap.org/copyright
@@ -120,8 +125,9 @@ def _readme(name: str, lat: float, lon: float, size_m: float, command: str, s: d
 
 | 파일 | 내용 |
 | --- | --- |
-| `manifest.json` | 메타데이터 (origin, 범위, 지형 고도 범위, 출처) |
+| `manifest.json` | 메타데이터 (origin, 범위, 지형 고도 범위, 토지 피복 채널, 출처) |
 | `terrain.png` | {terrain_line} |
+| `landcover.png` | 8비트 RGB 토지 피복 (terrain과 같은 격자). R = 불투수, G = 녹지·나무 수관, B = 수면, 0~255 = 셀 면적 비율 0~1. OSM 도형에서 추정 (구역 평균: 불투수 {lcm["impervious"]:.1%}, 녹지 {lcm["canopy"]:.1%}, 수면 {lcm["water"]:.1%}) |
 | `roads.geojson` | 도로 LineString {s["road_features"]}개 (OSM way {s["road_ways"]}개, 범위 경계에서 자름) |
 | `buildings.geojson` | 건물 Polygon {s["buildings"]}개 (무게중심이 범위 안인 건물, 자르지 않음) |
 

@@ -110,7 +110,7 @@ def test_parse_number():
 def test_build_package_offline(tmp_path, monkeypatch):
     monkeypatch.setattr(package, "overpass", lambda *a, **k: fake_response())
     out = tmp_path / "pkg"
-    s = package.build_package("t", *ORIGIN, SIZE, out, "uv run python -m dongne_gis build ...")
+    s = package.build_package("t", *ORIGIN, SIZE, out, "uv run python -m dongne_gis build ...", terrain=False)
     manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["extent_m"] == {"width": 200, "height": 200}
     assert manifest["terrain"]["file"] == "terrain.png"
