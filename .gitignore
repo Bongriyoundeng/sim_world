@@ -15,3 +15,5 @@ data-raw/
 *.tif
 # 비밀값
 .env
+# git 번들 (다른 작업에서 넘겨받는 임시 파일)
+*.bundle

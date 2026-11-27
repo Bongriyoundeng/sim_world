@@ -25,3 +25,16 @@ cd core && cargo test
 - 차선 수 기본값, 차량 간격, 자유 흐름 속도는 근거가 없는 **가정**입니다 ([research-log.md](../docs/design/research-log.md#road-lanes)).
 
 `maps/pyeongtaek-station` (OSM 2026-11-27): 노드 908, 엣지 1,272, 차선 2,588, 경계 노드 87, 총 차선 137.5 km, 가장 큰 강연결 요소 94.3 %. 통합 테스트 `crates/world/tests/pyeongtaek_station.rs`는 하한 0.8로 확인합니다.
+
+## 차량 이동 (`crates/sim/src/traffic.rs`)
+
+[ADR 0004](../docs/adr/0004-traffic-model.md)의 이벤트 기반 차선 대기열 모델입니다. `Simulation::step(n)`이 n틱(1틱 = 100 ms)까지의 이벤트를 처리합니다.
+
+- 차량 상태: 출발 대기 → 차선 주행(`Crossing`) → 차선 끝 대기열(`Queued`) → 맨 앞에서 교차로 통과 대기(`WaitingToAdvance`) → 다음 차선 … → 도착.
+- 차선마다 대기열 용량(도로 그래프의 길이 ÷ 7.5 m)을 넘으면 들어가지 못하고 교차로에서 기다립니다.
+- 교차로는 신호 없이 선착순, 한 번에 한 대가 2초 동안 지나갑니다. 유턴은 막다른 곳에서만.
+- 경로는 자유 흐름 시간 기준 Dijkstra. 차선을 막으면(`set_lane_blocked`) 새 경로는 그 차선을 피하고, 이미 가던 차량은 교차로에서 경로를 다시 찾습니다.
+- 결정론: 정수 ms 시간, (시각, 순번) 이벤트 순서, 시드 고정 난수(SplitMix64), 동률 처리 규칙 고정.
+- 파라미터와 가정: [research-log.md](../docs/design/research-log.md#traffic-queue)
+
+`maps/pyeongtaek-station`에서 차량 100대(시드 42, 5분 동안 출발): 모두 도착, 평균 이동 시간 139.6 초, 최장 361.8 초. 같은 시드로 두 번 돌리면 모든 차량 상태가 같습니다 (`crates/sim/tests/pyeongtaek_vehicles.rs`).
