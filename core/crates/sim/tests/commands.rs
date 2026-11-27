@@ -30,6 +30,7 @@ fn world(features: &[String]) -> World {
         road_graph: RoadGraph::from_geojson(&json, 2000.0, 2000.0).unwrap(),
         zones: ZoneMap::new(2000.0, 2000.0, 30.0),
         manifest,
+        buildings: Vec::new(),
     }
 }
 

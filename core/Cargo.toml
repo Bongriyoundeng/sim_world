@@ -1,7 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["crates/api", "crates/world", "crates/sim", "crates/py"]
-# crates/py(PyO3)는 libpython이 필요해 기본 빌드·테스트에서 빼고 maturin으로 따로 빌드한다
+members = ["crates/api", "crates/world", "crates/sim", "crates/py", "crates/godot"]
+# crates/py(PyO3)는 libpython이 필요해 maturin으로, crates/godot(gdext)는 빌드가 무거워
+# 기본 빌드·테스트에서 빼고 따로 빌드한다 (core/README.md)
 default-members = ["crates/api", "crates/world", "crates/sim"]
 
 [workspace.package]
