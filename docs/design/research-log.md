@@ -72,6 +72,16 @@
 - KOSIS 주민등록인구 표: 로그인 페이지로 넘어가 확인 못 함. 저작권 정책 페이지 주소(kosis.kr/serviceInfo/copyrightPolicy.do)는 404.
 - 공공데이터포털 건축물대장·개별공시지가: 기존에 알려진 데이터 번호 주소가 404. 현재 주소를 찾아야 함.
 
+## 교차로 신호 (2단계 #34)
+
+<a id="signals"></a>
+**FHWA Traffic Signal Timing Manual** (FHWA-HOP-08-024, 미국 연방도로청, 공공 저작물. 페이지 머리에 개정 2판으로 대체되었다는 안내가 있음) — 직접 열어 확인 (2026-11-28)
+- [3장](https://ops.fhwa.dot.gov/publications/fhwahop08024/chapter3.htm) 3.3.2: 포화 교통류율은 흔히 차로당 시간당 1,500~2,000 승용차, 이상값은 보통 1,900. 3.4.3 실무 근사: 차로당 1,800대/시 → 차량당 녹색 2초. 3.3.1 출발 손실 약 2초. 3.3.3: HCM 기본 총 손실 시간은 현시당 4초.
+- 같은 3.4.3 표 3-4 계획 단계 주기: 양쪽 도로 비보호 좌회전 60초, 한쪽 보호 좌회전 또는 분리 현시 90초, 양쪽 120초. (조정 운영 요구는 반영 안 된 값)
+- [5장](https://ops.fhwa.dot.gov/publications/fhwahop08024/chapter5.htm) 5.3.2: 황색은 대략 3~6초(MUTCD), 전적색은 6초를 넘지 않음.
+- 쓰인 곳: `core/crates/sim/src/traffic.rs`의 `SATURATION_HEADWAY_MS`(2초), `SIGNAL_CYCLE_MS`(60초), `LOST_TIME_PER_PHASE_MS`(4초).
+- **가정**: 신호 위치 규칙(간선끼리 만나는 3갈래 이상 교차로) — OSM 평택역 범위에 `highway=traffic_signals`·`crossing=traffic_signals` 노드가 0개(2026-11-28 Overpass 확인)라 실제 위치를 쓸 수 없음. 최소 녹색 10초, 교차로별 신호 어긋남(노드 번호 × 7.919초), 교착 해소 60·300초, 국내 기준(도로용량편람) 값 확인은 조사 과제.
+
 ## 지형 데이터 받는 곳
 
 <a id="copernicus-dem-aws"></a>

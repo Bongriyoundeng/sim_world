@@ -56,6 +56,7 @@ fn state_code(s: VehicleState) -> u64 {
         VehicleState::Queued => 3,
         VehicleState::WaitingToAdvance => 4,
         VehicleState::Arrived => 5,
+        VehicleState::Cancelled => 6,
     }
 }
 
