@@ -6,6 +6,7 @@ use std::path::Path;
 pub use dongne_api::Manifest;
 
 pub mod buildings;
+pub mod land_use;
 pub mod road_graph;
 pub mod zones;
 pub use buildings::Building;
