@@ -14,7 +14,8 @@ pub enum BuildingUse {
     Office,
     Public,
     Industrial,
-    /// `building=yes` 등 용도 불명: 원도심 상가주택으로 보고 1층 상업 + 나머지 주거 (가정)
+    /// `building=yes` 등 용도 불명: 주변 법정동 건축물대장의 작은 건물(단독주택·근린생활시설) 분포를 따름
+    /// (평균 지상층수, 주거 면적 비율 — `LandUseParams::mixed_*`)
     Mixed,
     /// 차고·창고 지붕·공사 중 등 사람이 머물지 않음
     Inactive,
@@ -56,6 +57,11 @@ pub struct LandUseParams {
     pub car_share: f64,
     /// 연면적 1,000㎡당 하루 방문(차량) 통행 — 교통영향평가지침의 "용도별 24시간 단위면적당 원단위" 방식, 값은 가정
     pub visit_trips_per_1000m2: [f64; 3], // [상업, 공공, 사무]
+    /// 용도 불명 건물의 층수 (층수 태그가 없을 때). 건축물대장 표제부 평택동·통복동·군문동의
+    /// 단독주택·제1·2종 근린생활시설 2,544동 평균 지상층수 2.11 (research-log.md#building-register)
+    pub mixed_floors: f64,
+    /// 용도 불명 건물 연면적 중 주거 비율. 같은 자료의 단독주택 ÷ (단독주택 + 근린생활시설) 연면적 = 0.344
+    pub mixed_residential_share: f64,
 }
 
 impl Default for LandUseParams {
@@ -69,6 +75,8 @@ impl Default for LandUseParams {
             employed_share: 0.5,
             car_share: 0.5,
             visit_trips_per_1000m2: [20.0, 5.0, 2.0],
+            mixed_floors: 2.11,
+            mixed_residential_share: 0.344,
         }
     }
 }
@@ -77,7 +85,8 @@ impl Default for LandUseParams {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct BuildingActivity {
     pub use_: Option<BuildingUse>,
-    pub floors: u32,
+    /// 연면적 계산에 쓴 층수 (용도 불명 건물은 평균값이라 소수일 수 있음)
+    pub floors: f64,
     pub footprint_m2: f64,
     pub floor_area_m2: f64,
     pub residential_m2: f64,
@@ -119,13 +128,16 @@ pub fn floors(b: &Building) -> u32 {
 pub fn activity(b: &Building, p: &LandUseParams) -> BuildingActivity {
     let use_ = classify(&b.kind);
     let (footprint, centroid) = area_centroid(&b.footprint);
-    let floors = floors(b);
-    let total = footprint * floors as f64;
+    let floors = match (use_, b.levels) {
+        (BuildingUse::Mixed, None) => p.mixed_floors,
+        _ => floors(b) as f64,
+    };
+    let total = footprint * floors;
     let (res, nonres) = match use_ {
         BuildingUse::Residential => (total, 0.0),
         BuildingUse::Mixed => {
-            let ground = footprint.min(total);
-            (total - ground, ground)
+            let r = total * p.mixed_residential_share;
+            (r, total - r)
         }
         BuildingUse::Inactive => (0.0, 0.0),
         _ => (0.0, total),
@@ -198,12 +210,12 @@ mod tests {
             "사무가 상업보다 종사자 밀도 높음"
         );
         assert!(shop.visit_trips > off.visit_trips && off.residents == 0.0);
-        // 용도 불명(상가주택): 1층 상업 + 나머지 주거
+        // 용도 불명: 건축물대장 작은 건물 분포 — 주거 비율 0.344, 층수 태그가 없으면 2.11층
         let mixed = activity(&b("yes", Some(3.0), 20.0), &p);
-        assert_eq!(
-            (mixed.nonresidential_m2, mixed.residential_m2),
-            (400.0, 800.0)
-        );
+        assert!((mixed.residential_m2 - 1_200.0 * 0.344).abs() < 1e-9);
+        assert!((mixed.nonresidential_m2 - 1_200.0 * (1.0 - 0.344)).abs() < 1e-9);
+        let untagged = activity(&b("yes", None, 20.0), &p);
+        assert!((untagged.floor_area_m2 - 400.0 * 2.11).abs() < 1e-9);
         // 층수 태그가 없으면 표시 높이 ÷ 3 m
         assert_eq!(floors(&b("apartments", None, 20.0)), 15);
         assert_eq!(activity(&b("garage", None, 20.0), &p).floor_area_m2, 400.0);
