@@ -43,7 +43,7 @@ godot --path client -- --demo frames/            # 출퇴근 장면을 돌리며
 | --- | --- | --- |
 | 지형 | `terrain.png` + manifest 고도 범위 | 셀 중심을 꼭짓점으로 하는 격자 메시, 높이에 따라 색 |
 | 도로 | 코어 도로 그래프 (`road_points`, 차선 수, 유형) | 차선 수 × 3 m 폭의 띠, 지형 위 0.6 m, 유형별 색 |
-| 건물 | 코어가 읽은 `buildings.geojson` | 바닥 다각형을 표시 높이만큼 올린 벽 + 지붕. 용도별 색, 셰이더로 그린 창문·1층 상점·간판, 평지붕 난간, 작은 사각형 건물의 박공·모임지붕 (`scripts/buildings.gd`, `shaders/building.gdshader`) |
+| 건물 | 코어가 읽은 `buildings.geojson` | 바닥 다각형을 표시 높이만큼 올린 벽 + 지붕. 용도별 색, 셰이더로 그린 창문·1층 상점·간판, 평지붕 난간, 작은 사각형 건물의 박공·모임지붕, 아파트 옥탑·측벽 동 번호, 도로 쪽 차양·돌출 간판, 옥상 물탱크·옥탑방·실외기 (`scripts/buildings.gd`, `shaders/building.gdshader`) |
 
 - 좌표: 맵 패키지 로컬 미터 (x 동쪽, y 북쪽) → Godot `(x, 높이, -y)`.
 - 건물 용도는 OSM 값(대부분 `yes`)과 바닥 면적으로 나눈 **표시용 가정**입니다 ([research-log.md](../docs/design/research-log.md#building-look)). 창문은 텍스처 파일 없이 셰이더로 그립니다.
