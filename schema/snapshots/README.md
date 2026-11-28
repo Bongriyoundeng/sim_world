@@ -12,6 +12,8 @@
   "map": "pyeongtaek-station",
   "tick": 6000,
   "time_s": 600.0,
+  "day": 0,
+  "seasons_completed": 0,
   "traffic": { "vehicles": 100, "arrived": 100, "mean_travel_s": 139.6, "max_travel_s": 361.8 },
   "road_graph": { "nodes": 908, "edges": 1272, "lanes": 2588, "lane_km": 137.5 },
   "zones": 0,
@@ -29,7 +31,8 @@
 
 | 필드 | 뜻 |
 | --- | --- |
-| `tick`, `time_s` | 진행한 틱 수(1틱 = 100 ms), 시뮬레이션 시각(초, 자정 = 0) |
+| `tick`, `time_s` | 진행한 틱 수(1틱 = 100 ms), 시뮬레이션 시각(초, 첫날 자정 = 0) |
+| `day`, `seasons_completed` | 지금 날짜(0부터), 끝낸 계절 수 ([ADR 0007](../../docs/adr/0007-time-model.md)) |
 | `traffic` | 예약된 차량 수, 도착한 수, 도착한 차량의 평균·최장 이동 시간 |
 | `road_graph` | 없앤 도로를 뺀 노드·엣지·차선 수, 총 차선 길이 |
 | `zones` | 구역이 지정된 셀 수 |

@@ -30,6 +30,7 @@ print(snap["traffic"])
 | `add_trip(origin, dest, depart_s=0)` | 통행 하나 예약 (경로 없으면 `None`) |
 | `add_random_trips(n, seed=0, depart_window_s=300)` | 무작위 통행 n개 |
 | `add_commute(seed=0, residents_per_cell=None, …)` | 구역 맵에서 출퇴근 통행 생성, 요약 dict |
+| `run_day()`, `run_season(seed=0, residents_per_cell=None)`, `day` | 다음 자정까지 진행 / 한 계절 진행(ADR 0007 대표일 방식), 보고서 dict |
 | `snapshot(vehicles=True)` | 현재 상태 dict ([schema/snapshots](../../../schema/snapshots/README.md)) |
 
 - `abi3-py312`로 빌드해 Python 3.12 이상 어디서나 같은 wheel을 씁니다.

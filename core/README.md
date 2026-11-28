@@ -58,3 +58,12 @@ cd core && cargo test
 ## Python 바인딩 (`crates/py`)
 
 `import dongne_core`로 `Simulation.load` → `submit`(명령) → `step` → `snapshot`(dict)을 씁니다. 사용법과 빌드: [crates/py/README.md](crates/py/README.md). 스냅샷 형식: [schema/snapshots](../schema/snapshots/README.md). libpython이 필요해 workspace `default-members`에서 빠져 있고, CI `python-binding` 잡이 maturin + pytest로 검사합니다.
+
+## 하루·계절 진행 (`crates/sim/src/season.rs`)
+
+[ADR 0007](../docs/adr/0007-time-model.md) 시간 모델. 틱 100 ms, 하루 864,000틱, 계절 90일.
+
+- `run_day()`: 다음 자정까지 진행하고 그날 출발한 통행의 `DayReport`(통행·도착·미도착, 평균·최장 이동 시간, 시간대별 도로 위 차량)를 냅니다.
+- `run_season(params, seed)`: 쌓인 명령을 적용한 뒤, 계절 첫날(대표 평일)의 출퇴근을 지금 구역 맵으로 만들어(시드 + 계절 번호) 하루를 차량 단위로 돌리고, 통행 수를 90일로 집계한 `SeasonReport`를 냅니다. 남은 89일은 예약된 통행이 없으므로 이벤트 없이 건너뜁니다.
+- `calendar.log`에 `SeasonStart`·`DayStart`·`DayEnd`·`SeasonEnd`가 순서대로 남습니다. 인구·경제·기후 모델(2단계)은 이 경계에서 갱신됩니다.
+- 평택역 맵(시나리오 구역, 셀당 통근자 3명)으로 두 계절을 두 번 돌려 결과가 같은지 `crates/sim/tests/season.rs`가 확인합니다.
