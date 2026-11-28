@@ -138,6 +138,7 @@ impl Simulation {
         let mut lp = dongne_world::land_use::LandUseParams::default();
         if let Some(c) = car_share {
             lp.car_share = c;
+            lp.car_share_from_density = false;
         }
         let day_start = self.inner.day() as u64 * dongne_sim_core::demand::DAY_MS;
         let r = self
@@ -163,7 +164,7 @@ impl Simulation {
                 "residents": r.residents, "workers": r.workers,
                 "car_commuters": r.car_commuters, "visit_trips": r.visit_trips,
                 "trips": r.trips, "same_node": r.same_node, "unroutable": r.unroutable,
-                "buildings_used": r.buildings_used, "buildings_without_road": r.buildings_without_road,
+                "buildings_used": r.buildings_used, "mean_car_share": r.mean_car_share, "buildings_without_road": r.buildings_without_road,
                 "by_use": by_use,
             }),
         )

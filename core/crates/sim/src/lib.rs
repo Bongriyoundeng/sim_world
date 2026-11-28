@@ -8,6 +8,7 @@ use dongne_world::World;
 
 pub mod building_demand;
 pub mod demand;
+pub mod economy;
 pub mod hash;
 pub mod season;
 pub mod snapshot;
