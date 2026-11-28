@@ -8,7 +8,7 @@ extends Node3D
 ##   --map <폴더>        맵 패키지 (기본: 저장소의 maps/pyeongtaek-station)
 ##   --quit-after-load   메시를 다 만들고 종료 (헤드리스 확인용)
 ##   --capture <png>     몇 프레임 그린 뒤 화면을 저장하고 종료
-##   --view <이름>       처음 카메라 위치: overview(기본), street(원도심 저층), apartments(아파트 단지)
+##   --view <이름>       처음 카메라 위치: overview(기본), street(원도심 저층), apartments(아파트 단지), boulevard(큰길 가로수)
 ##   --time <HH:MM>      조명 시각 (KST, 기본 09:00). 시뮬레이션이 돌면 시뮬레이션 시각을 따름 (L 키로 전환)
 ##   --season <이름>     spring·summer(기본)·autumn·winter: 해 길과 지형 색
 ##   그 밖의 옵션(--selftest, --demo)과 조작법은 scripts/sim_controller.gd
@@ -22,6 +22,7 @@ const VIEWS := {
 	"overview": [Vector3(-420, 980, 1150), Vector3(0, 0, -60)],
 	"street": [Vector3(-330, 75, -250), Vector3(-225, 10, -375)],
 	"apartments": [Vector3(200, 150, 640), Vector3(380, 15, 380)],
+	"boulevard": [Vector3(70, 42, -185), Vector3(-200, 4, -272)],
 }
 
 const ROAD_COLORS := {
@@ -39,6 +40,7 @@ var heights := PackedFloat32Array()
 var cam: Camera3D
 var sky: Node3D             # scripts/sky_light.gd
 var buildings_node: MeshInstance3D
+var street: Node3D          # scripts/streetscape.gd (가로수·가로등)
 var terrain_node: MeshInstance3D
 var origin := Vector2(36.993, 127.087)   # 위도, 경도 (manifest.json)
 var season := "summer"
@@ -69,6 +71,9 @@ func _ready() -> void:
 	rebuild_roads()
 	buildings_node = _building_mesh()
 	add_child(buildings_node)
+	street = load("res://scripts/streetscape.gd").new()
+	add_child(street)
+	street.build(world, height_at)
 	_add_camera_and_light(_arg(args, "--view", "overview"))
 
 	print("MAP_VIEW_OK map=%s terrain=%dx%d roads=%d buildings=%d" % [
@@ -92,6 +97,8 @@ func rebuild_roads() -> void:
 		remove_child(old)
 		old.queue_free()
 	add_child(_road_mesh())
+	if street:
+		street.build(world, height_at)
 
 
 func _read_origin(map_dir: String, fallback: Vector2) -> Vector2:
@@ -245,6 +252,7 @@ func _add_camera_and_light(view: String) -> void:
 	sky = load("res://scripts/sky_light.gd").new(origin)
 	sky.building_mat = buildings_node.material_override
 	sky.terrain_mat = terrain_node.material_override
+	sky.street = street
 	add_child(sky)
 	sky.set_season(season)
 	sky.set_time(start_hour, sky.day_of_year)
