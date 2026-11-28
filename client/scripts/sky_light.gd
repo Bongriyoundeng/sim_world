@@ -25,6 +25,7 @@ var env: Environment
 var sky_mat: ProceduralSkyMaterial
 var building_mat: ShaderMaterial
 var terrain_mat: StandardMaterial3D
+var street: Node3D          # scripts/streetscape.gd: set_season, set_night
 var elevation_deg := 0.0
 var azimuth_deg := 0.0
 var hour := 10.0
@@ -90,6 +91,8 @@ func set_season(season: String) -> void:
 	day_of_year = season_day(season)
 	if terrain_mat:
 		terrain_mat.albedo_color = SEASONS.get(season, SEASONS["summer"])["tint"]
+	if street:
+		street.set_season(season if SEASONS.has(season) else "summer")
 	set_time(hour, day_of_year)
 
 
@@ -152,8 +155,11 @@ func _apply() -> void:
 	env.tonemap_exposure = lerpf(1.6, 1.0, day)
 	env.fog_light_color = hor
 
+	var night := 1.0 - smoothstep(-4.0, 6.0, el)
 	if building_mat:
-		building_mat.set_shader_parameter("night", 1.0 - smoothstep(-4.0, 6.0, el))
+		building_mat.set_shader_parameter("night", night)
+	if street:
+		street.set_night(night)
 
 
 func describe() -> String:
