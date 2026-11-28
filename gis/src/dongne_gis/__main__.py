@@ -39,7 +39,36 @@ def main(argv: list[str] | None = None) -> int:
     c = sub.add_parser("check", help="평택역·통복천이 범위 안에 있는지 확인")
     _area_args(c)
 
+    r = sub.add_parser("register", help="건축물대장 표제부 → 법정동 건물 통계 (키: DATA_GO_KR_KEY)")
+    r.add_argument("--sigungu", required=True, help="시군구 코드 (예: 41220 평택시)")
+    r.add_argument("--bjdong", nargs="+", required=True, help="법정동 코드 (예: 11300 평택동)")
+    r.add_argument("--out", type=Path, help="통계 JSON을 저장할 파일")
+    r.add_argument("--cache-dir", type=Path, default=None)
+    r.add_argument("--refresh", action="store_true")
+
     args = parser.parse_args(argv)
+    if args.cmd == "register":
+        import json
+
+        from .building_register import RegisterError, fetch_dong, summarize
+
+        items = []
+        try:
+            for d in args.bjdong:
+                got = fetch_dong(args.sigungu, d, args.cache_dir, args.refresh)
+                print(f"{args.sigungu}-{d}: 표제부 {len(got)}건")
+                items += got
+        except RegisterError as e:
+            print(f"건축물대장 오류: {e}", file=sys.stderr)
+            return 2
+        stats = summarize(items)
+        stats["sigungu"], stats["bjdong"] = args.sigungu, args.bjdong
+        text = json.dumps(stats, ensure_ascii=False, indent=2)
+        print(text)
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(text + "\n", encoding="utf-8")
+        return 0
     if args.cmd == "build":
         shown = ["uv", "run", "python", "-m", "dongne_gis", "build", "--name", args.name,
                  "--lat", str(args.lat), "--lon", str(args.lon), "--size", f"{args.size:g}",
