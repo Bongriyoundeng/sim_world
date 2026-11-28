@@ -8,7 +8,9 @@ extends Node3D
 ##   --map <폴더>        맵 패키지 (기본: 저장소의 maps/pyeongtaek-station)
 ##   --quit-after-load   메시를 다 만들고 종료 (헤드리스 확인용)
 ##   --capture <png>     몇 프레임 그린 뒤 화면을 저장하고 종료
-##   --view <이름>       처음 카메라 위치: overview(기본), street(원도심 저층), apartments(아파트 단지)
+##   --view <이름>       처음 카메라 위치: overview(기본), street(원도심 저층), apartments(아파트 단지), boulevard(큰길 가로수)
+##   --time <HH:MM>      조명 시각 (KST, 기본 09:00). 시뮬레이션이 돌면 시뮬레이션 시각을 따름 (L 키로 전환)
+##   --season <이름>     spring·summer(기본)·autumn·winter: 해 길과 지형 색
 ##   그 밖의 옵션(--selftest, --demo)과 조작법은 scripts/sim_controller.gd
 
 const DEFAULT_MAP := "../maps/pyeongtaek-station"
@@ -20,6 +22,7 @@ const VIEWS := {
 	"overview": [Vector3(-420, 980, 1150), Vector3(0, 0, -60)],
 	"street": [Vector3(-330, 75, -250), Vector3(-225, 10, -375)],
 	"apartments": [Vector3(200, 150, 640), Vector3(380, 15, 380)],
+	"boulevard": [Vector3(70, 42, -185), Vector3(-200, 4, -272)],
 }
 
 const ROAD_COLORS := {
@@ -35,6 +38,13 @@ var res_m := 30.0
 var extent := Vector2.ZERO
 var heights := PackedFloat32Array()
 var cam: Camera3D
+var sky: Node3D             # scripts/sky_light.gd
+var buildings_node: MeshInstance3D
+var street: Node3D          # scripts/streetscape.gd (가로수·가로등)
+var terrain_node: MeshInstance3D
+var origin := Vector2(36.993, 127.087)   # 위도, 경도 (manifest.json)
+var season := "summer"
+var start_hour := 9.0
 
 
 func _ready() -> void:
@@ -53,9 +63,17 @@ func _ready() -> void:
 	res_m = world.terrain_resolution()
 	if not _load_terrain(map_dir.path_join(world.terrain_file())):
 		return
-	add_child(_terrain_mesh())
+	origin = _read_origin(map_dir, origin)
+	season = _arg(args, "--season", "summer")
+	start_hour = _parse_hour(_arg(args, "--time", "09:00"))
+	terrain_node = _terrain_mesh()
+	add_child(terrain_node)
 	rebuild_roads()
-	add_child(_building_mesh())
+	buildings_node = _building_mesh()
+	add_child(buildings_node)
+	street = load("res://scripts/streetscape.gd").new()
+	add_child(street)
+	street.build(world, height_at)
 	_add_camera_and_light(_arg(args, "--view", "overview"))
 
 	print("MAP_VIEW_OK map=%s terrain=%dx%d roads=%d buildings=%d" % [
@@ -79,6 +97,21 @@ func rebuild_roads() -> void:
 		remove_child(old)
 		old.queue_free()
 	add_child(_road_mesh())
+	if street:
+		street.build(world, height_at)
+
+
+func _read_origin(map_dir: String, fallback: Vector2) -> Vector2:
+	var txt := FileAccess.get_file_as_string(map_dir.path_join("manifest.json"))
+	var m = JSON.parse_string(txt) if txt != "" else null
+	if m is Dictionary and m.has("origin"):
+		return Vector2(float(m["origin"]["lat"]), float(m["origin"]["lon"]))
+	return fallback
+
+
+static func _parse_hour(t: String) -> float:
+	var parts := t.split(":")
+	return float(parts[0]) + (float(parts[1]) / 60.0 if parts.size() > 1 else 0.0)
 
 
 func _arg(args: PackedStringArray, name: String, default: String) -> String:
@@ -215,50 +248,14 @@ func _add_camera_and_light(view: String) -> void:
 	var v: Array = VIEWS.get(view, VIEWS["overview"])
 	cam.look_at_from_position(v[0], v[1], Vector3.UP)
 
-	# 해: 늦은 오전 남동쪽 (그림자가 북서로 길게), 그림자는 전체 맵이 보이는 거리까지
-	var sun := DirectionalLight3D.new()
-	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-42, 150, 0)
-	sun.light_color = Color(1.0, 0.96, 0.9)
-	sun.light_energy = 1.25
-	sun.shadow_enabled = true
-	sun.shadow_bias = 0.05
-	sun.shadow_normal_bias = 1.0
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	sun.directional_shadow_max_distance = 3000.0
-	sun.directional_shadow_blend_splits = true
-	add_child(sun)
-
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.36, 0.55, 0.80)
-	sky_mat.sky_horizon_color = Color(0.72, 0.80, 0.88)
-	sky_mat.ground_horizon_color = Color(0.72, 0.80, 0.88)
-	sky_mat.ground_bottom_color = Color(0.40, 0.42, 0.40)
-	var sky := Sky.new()
-	sky.sky_material = sky_mat
-
-	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.6
-	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.0
-	# 건물 사이·벽 아래 접지 그늘
-	env.ssao_enabled = true
-	env.ssao_radius = 3.0
-	env.ssao_intensity = 1.6
-	# 먼 곳을 하늘색으로 흐림 (공기 원근)
-	env.fog_enabled = true
-	env.fog_mode = Environment.FOG_MODE_DEPTH
-	env.fog_light_color = Color(0.74, 0.81, 0.89)
-	env.fog_depth_begin = 900.0
-	env.fog_depth_end = 4500.0
-	env.fog_density = 0.2
-	var we := WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
+	# 해·하늘: 시각·계절에 따라 (scripts/sky_light.gd)
+	sky = load("res://scripts/sky_light.gd").new(origin)
+	sky.building_mat = buildings_node.material_override
+	sky.terrain_mat = terrain_node.material_override
+	sky.street = street
+	add_child(sky)
+	sky.set_season(season)
+	sky.set_time(start_hour, sky.day_of_year)
 
 
 func _capture(path: String) -> void:

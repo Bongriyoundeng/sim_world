@@ -6,6 +6,7 @@ extends Node
 ##   4 주거  5 상업  6 업무  7 공원  8 구역 지우기  (끌어서 칠하기)
 ##   Space 멈춤/재생   + / - 속도   C 출퇴근 통행 만들기   T 무작위 차량 200대
 ##   W A S D 이동   휠 확대·축소   오른쪽 버튼 끌기 회전   Esc 도로 그리기 취소
+##   L 조명: 시뮬레이션 시각 ↔ 시작 시각 고정   K 계절 바꾸기 (봄·여름·가을·겨울)
 ##
 ## 명령줄 (godot --path client -- …)
 ##   --selftest               명령·차량 위치·보간 경로를 확인하고 종료 (헤드리스 가능)
@@ -50,6 +51,9 @@ var cam_dist := 1610.0
 var cam_yaw := -19.0
 var cam_pitch := 37.0
 
+var light_follows_sim := true
+var season_i := 1
+
 var demo_dir := ""
 var demo_frames := 0
 var demo_total := 180
@@ -91,6 +95,7 @@ func _process(delta: float) -> void:
 		if n == MAX_CHUNKS_PER_FRAME:
 			acc = 0.0
 	_draw_vehicles(clampf(acc / chunk_s, 0.0, 1.0))
+	_update_light(clampf(acc / chunk_s, 0.0, 1.0) * chunk_s)
 	_update_hud()
 	if demo_dir != "":
 		_demo_frame()
@@ -196,6 +201,15 @@ func _key(k: Key) -> void:
 			message = "출퇴근 통행: " + world.add_commute(2026)
 		KEY_T:
 			message = "무작위 차량 %d대" % world.add_random_trips(200, Time.get_ticks_msec(), 120.0)
+		KEY_L:
+			light_follows_sim = not light_follows_sim
+			if not light_follows_sim:
+				view.sky.set_time(view.start_hour, view.sky.day_of_year)
+			message = "조명: " + ("시뮬레이션 시각" if light_follows_sim else "%s 고정" % view.sky.describe())
+		KEY_K:
+			season_i = (season_i + 1) % 4
+			view.sky.set_season(view.sky.SEASON_ORDER[season_i])
+			message = "계절: " + ["봄", "여름", "가을", "겨울"][season_i]
 		KEY_ESCAPE:
 			road_start = null
 			marker.visible = false
@@ -386,6 +400,14 @@ func _make_hud() -> void:
 	panel.add_child(hud)
 
 
+## 조명을 시뮬레이션 시각에 맞춘다 (보간 중인 몫 extra_s만큼 앞).
+func _update_light(extra_s: float) -> void:
+	if not light_follows_sim or view.sky == null:
+		return
+	var t: float = fposmod(world.time_s() + extra_s, 86400.0)
+	view.sky.set_time(t / 3600.0, view.sky.day_of_year)
+
+
 func _update_hud() -> void:
 	var t: float = world.time_s()
 	var day := int(t) % 86400
@@ -393,7 +415,7 @@ func _update_hud() -> void:
 	var tool_name: String = ["보기", "도로 그리기", "도로 삭제", "구역 칠하기"][tool]
 	if tool == Tool.ZONE:
 		tool_name += " (%s)" % (ZONE_LABELS[zone_i] if zone_i >= 0 else "지우기")
-	hud.text = "%02d:%02d  ×%d  |  도구: %s\n차량 %d대 · 도로 위 %d대 · 도착 %d · 평균 통근 %.0f초\n%s\n1 보기 2 도로 3 삭제 4~7 구역 8 지우기 · Space 멈춤 · +/- 속도 · C 출퇴근 · T 무작위" % [
+	hud.text = "%02d:%02d  ×%d  |  도구: %s\n차량 %d대 · 도로 위 %d대 · 도착 %d · 평균 통근 %.0f초\n%s\n1 보기 2 도로 3 삭제 4~7 구역 8 지우기 · Space 멈춤 · +/- 속도 · C 출퇴근 · T 무작위 · L 조명 · K 계절" % [
 		day / 3600, (day % 3600) / 60, int(SPEEDS[speed_i]), tool_name,
 		tr["vehicles"], cur.size(), tr["arrived"], tr["mean_travel_s"], message]
 

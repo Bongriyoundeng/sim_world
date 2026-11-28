@@ -13,7 +13,8 @@ godot --path client --import --headless           # 처음 한 번 (리소스 �
 godot --path client                               # 맵 보기 창
 godot --headless --path client -- --quit-after-load   # 화면 없이 씬 로드 확인 → "MAP_VIEW_OK …"
 godot --path client -- --capture map.png          # 화면 캡처 저장 후 종료
-godot --path client -- --capture s.png --view street   # 가까운 시점 캡처 (overview·street·apartments)
+godot --path client -- --capture s.png --view street   # 가까운 시점 캡처 (overview·street·apartments·boulevard)
+godot --path client -- --capture n.png --view street --time 21:30 --season winter   # 시각·계절 지정
 godot --path client -- --map D:/other/map-package  # 다른 맵 패키지
 godot --headless --path client -- --selftest     # 명령·차량 위치·보간 확인 → "SELFTEST_OK …"
 godot --path client -- --demo frames/            # 출퇴근 장면을 돌리며 프레임 PNG 저장
@@ -32,6 +33,8 @@ godot --path client -- --demo frames/            # 출퇴근 장면을 돌리며
 | `T` | 무작위 차량 200대 (2분 안에 출발) |
 | `Space`, `+`/`-` | 멈춤·재생, 속도 (실시간 1초당 시뮬레이션 1~300초) |
 | `W A S D`, 휠, 오른쪽 끌기 | 카메라 이동, 확대·축소, 회전 |
+| `L` | 조명: 시뮬레이션 시각 따라가기 ↔ 시작 시각(09:00) 고정 |
+| `K` | 계절 바꾸기 (봄·여름·가을·겨울: 해 길과 지형 색) |
 
 - 도구는 모두 코어 명령(`schema/commands`)으로 바뀌어 다음 틱 경계에 적용되고, 결과(적용·거부)가 화면 위쪽에 나옵니다. 멈춰 있어도 바로 적용됩니다.
 - **차량 보간**: 코어를 0.5초(5틱)씩 진행하고, 그 사이 프레임은 앞뒤 위치를 선형 보간합니다(진행 방향은 각도 보간). 차량 위치는 코어의 `lane_positions`가 차선 안 진행률과 대기열 순번(앞차 뒤 7.5 m)으로 계산합니다. 차량은 잘 보이게 실제보다 조금 크게(6 × 3 m) 그립니다.
@@ -44,10 +47,11 @@ godot --path client -- --demo frames/            # 출퇴근 장면을 돌리며
 | 지형 | `terrain.png` + manifest 고도 범위 | 셀 중심을 꼭짓점으로 하는 격자 메시, 높이에 따라 색 |
 | 도로 | 코어 도로 그래프 (`road_points`, 차선 수, 유형) | 차선 수 × 3 m 폭의 띠, 지형 위 0.6 m, 유형별 색 |
 | 건물 | 코어가 읽은 `buildings.geojson` | 바닥 다각형을 표시 높이만큼 올린 벽 + 지붕. 용도별 색, 셰이더로 그린 창문·1층 상점·간판, 평지붕 난간, 작은 사각형 건물의 박공·모임지붕, 아파트 옥탑·측벽 동 번호, 도로 쪽 차양·돌출 간판, 옥상 물탱크·옥탑방·실외기 (`scripts/buildings.gd`, `shaders/building.gdshader`) |
+| 가로수·가로등 | 코어 도로 그래프 (유형, 차선 수) | 도로 등급별 간격으로 도로 양옆에 배치 (교차로·건물·다른 차도 피함), 멀티메시. 계절별 나뭇잎 색, 밤 가로등 불빛 (`scripts/streetscape.gd`, [근거](../docs/design/research-log.md#streetscape)) |
 
 - 좌표: 맵 패키지 로컬 미터 (x 동쪽, y 북쪽) → Godot `(x, 높이, -y)`.
 - 건물 용도는 OSM 값(대부분 `yes`)과 바닥 면적으로 나눈 **표시용 가정**입니다 ([research-log.md](../docs/design/research-log.md#building-look)). 창문은 텍스처 파일 없이 셰이더로 그립니다.
-- 조명: 남동쪽 해(그림자 4단 분할, 3 km까지), 절차 하늘, 하늘 주변광, Filmic 톤매핑, SSAO, 먼 곳 안개.
+- 조명 (`scripts/sky_light.gd`): 맵 위도·경도와 날짜·시각으로 해 위치를 계산합니다 (그림자 4단 분할, 3 km까지). 하늘·노을·밤(창 불빛, 간판 발광, 달빛)이 시각을 따르고, 게임 중에는 시뮬레이션 시각을 따릅니다. `L` 조명 시각 고정/연동, `K` 계절 바꾸기. 근거: [research-log.md](../docs/design/research-log.md#sky-light)
 - 건물 높이는 OSM에 층수가 거의 없어 유형별 **가정** 높이를 씁니다 ([research-log.md](../docs/design/research-log.md#building-height)).
 - Godot는 16비트 PNG를 8비트로 읽어서 지형 높이는 약 (최고−최저)/255 m 단위입니다 (평택역 맵 0.17 m). 표시에는 충분하고, 시뮬레이션은 코어가 원본을 씁니다.
 

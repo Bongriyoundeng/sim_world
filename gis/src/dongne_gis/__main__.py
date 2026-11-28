@@ -39,6 +39,13 @@ def main(argv: list[str] | None = None) -> int:
     c = sub.add_parser("check", help="평택역·통복천이 범위 안에 있는지 확인")
     _area_args(c)
 
+    k = sub.add_parser("asos", help="기상청 ASOS 하루 시간 자료 → 기후 사건 JSON (키: DATA_GO_KR_KEY)")
+    k.add_argument("--station", required=True, help="ASOS 지점 번호 (예: 119 수원)")
+    k.add_argument("--date", required=True, help="YYYY-MM-DD")
+    k.add_argument("--season", type=int, default=1, help="계절 번호 (0 봄·1 여름·2 가을·3 겨울)")
+    k.add_argument("--name", default="실측 강우")
+    k.add_argument("--cache-dir", type=Path, default=None)
+
     r = sub.add_parser("register", help="건축물대장 표제부 → 법정동 건물 통계 (키: DATA_GO_KR_KEY)")
     r.add_argument("--sigungu", required=True, help="시군구 코드 (예: 41220 평택시)")
     r.add_argument("--bjdong", nargs="+", required=True, help="법정동 코드 (예: 11300 평택동)")
@@ -47,6 +54,18 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--refresh", action="store_true")
 
     args = parser.parse_args(argv)
+    if args.cmd == "asos":
+        import json
+
+        from .kma import KmaError, fetch_day, to_event
+
+        try:
+            items = fetch_day(args.station, args.date, args.cache_dir)
+        except KmaError as e:
+            print(f"기상청 API 오류: {e}", file=sys.stderr)
+            return 2
+        print(json.dumps(to_event(items, args.name, int(args.date[:4]), args.season), ensure_ascii=False, indent=2))
+        return 0
     if args.cmd == "register":
         import json
 

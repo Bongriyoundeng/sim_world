@@ -15,6 +15,7 @@ use dongne_world::land_use::{activity, BuildingActivity, BuildingUse, LandUsePar
 use dongne_world::road_graph::norm;
 
 use crate::demand::{DemandParams, HOUR_MS};
+use crate::economy::{car_share_for_density, EconomyParams};
 use crate::traffic::Rng;
 use crate::Simulation;
 
@@ -50,6 +51,8 @@ pub struct BuildingDemandReport {
     pub trips: u32,
     pub same_node: u32,
     pub unroutable: u32,
+    /// 차 통근 자리 계산에 쓴 승용차 분담률의 거주자 가중 평균
+    pub mean_car_share: f64,
     pub by_use: BTreeMap<BuildingUse, UseTotals>,
 }
 
@@ -142,15 +145,59 @@ impl Simulation {
         }
         rep.buildings_used = sites.len() as u32;
 
+        // 건물 주변(3×3 셀) 거주 밀도 → 승용차 분담률 (#37)
+        let ep = EconomyParams::default();
+        let z = &self.world.zones;
+        let mut res_grid = vec![0.0f64; (z.rows * z.cols) as usize];
+        for s in &sites {
+            if let Some((r, c)) = z.cell_at(s.act.centroid.0, s.act.centroid.1) {
+                res_grid[(r * z.cols + c) as usize] += s.act.residents;
+            }
+        }
+        let car_share: Vec<f64> = sites
+            .iter()
+            .map(|s| {
+                if !lp.car_share_from_density {
+                    return lp.car_share;
+                }
+                let Some((r, c)) = z.cell_at(s.act.centroid.0, s.act.centroid.1) else {
+                    return lp.car_share;
+                };
+                let (mut people, mut cells) = (0.0, 0.0);
+                for dr in -1i64..=1 {
+                    for dc in -1i64..=1 {
+                        let (rr, cc) = (r as i64 + dr, c as i64 + dc);
+                        if rr >= 0 && cc >= 0 && (rr as u32) < z.rows && (cc as u32) < z.cols {
+                            people += res_grid[(rr as u32 * z.cols + cc as u32) as usize];
+                            cells += 1.0;
+                        }
+                    }
+                }
+                let density = people / (cells * z.resolution_m * z.resolution_m) * 1e6;
+                car_share_for_density(density, &ep)
+            })
+            .collect();
+        let res_sum: f64 = sites.iter().map(|s| s.act.residents).sum();
+        if res_sum > 0.0 {
+            rep.mean_car_share = sites
+                .iter()
+                .zip(&car_share)
+                .map(|(s, c)| s.act.residents * c)
+                .sum::<f64>()
+                / res_sum;
+        }
+
         let mut rng = Rng::new(seed);
         // 집 자리·일자리 자리 (승용차)
         let homes: Vec<u64> = sites
             .iter()
-            .map(|s| stochastic_round(s.act.residents * lp.employed_share * lp.car_share, &mut rng))
+            .zip(&car_share)
+            .map(|(s, cs)| stochastic_round(s.act.residents * lp.employed_share * cs, &mut rng))
             .collect();
         let mut jobs: Vec<u64> = sites
             .iter()
-            .map(|s| stochastic_round(s.act.workers * lp.car_share, &mut rng))
+            .zip(&car_share)
+            .map(|(s, cs)| stochastic_round(s.act.workers * cs, &mut rng))
             .collect();
         let mut jobs_left: u64 = jobs.iter().sum();
 
