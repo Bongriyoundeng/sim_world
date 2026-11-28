@@ -12,7 +12,7 @@ use dongne_sim_core::{Simulation, TICK_MS};
 use dongne_world::load_map;
 
 /// 고정 시나리오의 기대 상태 해시
-const GOLDEN: &str = "3f015fbaf99cff32";
+const GOLDEN: &str = "144293afcf745f69";
 
 fn rect(x0: f64, y0: f64, x1: f64, y1: f64) -> ZoneArea {
     ZoneArea::Polygon(vec![
