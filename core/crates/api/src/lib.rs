@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod climate;
 pub mod command;
 pub use command::{Command, CommandOutcome, CommandResult, Point, RoadEnd, Zone, ZoneArea};
 
