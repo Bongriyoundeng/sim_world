@@ -158,3 +158,16 @@
 - 순서: `height` 태그 → `building:levels` × 3 m → 유형별 기본값.
 - 기본값: apartments 15층(45 m), house·detached·residential 2층(6 m), commercial·retail·office·school·public·hospital 4층(12 m), train_station·industrial·warehouse 6 m, roof·shed·garage·kiosk·construction 3 m, 그 밖(building=yes 등, 원도심 저층 상가주택으로 봄) 3층(9 m).
 - 지금은 표시용입니다. 인구·일자리 추정에 쓰려면 근거(건축물대장 등 공개 자료와 라이선스)를 먼저 확인합니다 (#13).
+
+## 건물 외형 (클라이언트 표시)
+
+<a id="building-look"></a>
+**표시 규칙 — 대부분 가정** — `client/scripts/buildings.gd`, `client/shaders/building.gdshader` (#55). 조사일: 2026-11-28.
+- 평택역 맵 건물 3,048개 중 2,944개(96.6%)가 `building=yes`라 OSM 값만으로는 용도를 나눌 수 없습니다. `yes`는 바닥 면적으로 나눕니다 (**가정**): 100 m² 미만 단독주택, 100~700 m² 상가주택(1층 상점 + 위층 주거), 700 m² 초과 상업. 면적 분포: 10% 60 m², 중앙값 121 m², 90% 294 m², 99% 860 m².
+- 그 밖의 값: apartments → 아파트, house·detached → 단독주택, commercial·retail·office → 상업, school·public·hospital 등 → 공공·학교, industrial·warehouse → 공장·창고, train_station → 역, roof·parking·construction 등 → 창 없는 부속 건물.
+- 창문은 텍스처 파일 없이 셰이더로 그립니다: 층 높이 3 m(코어 `STOREY_M`과 같음), 창 간격 아파트 3.3 m·상가주택 3.0 m·단독주택 3.5 m·상업 2.6 m·공공 3.6 m·공장 6 m (**가정**, 실측 아님). 벽 한 변의 칸 수는 변 길이 ÷ 간격을 반올림해 창이 모서리에 걸리지 않게 합니다. 아파트의 짧은 옆벽(가장 긴 변의 45% 미만)은 창 없는 측벽으로 둡니다.
+- 평지붕은 난간(0.9 m, 아파트 1.2 m)을 두르고, 단독주택·상가주택 평지붕의 60%를 녹색으로 칠합니다. 근거: 한국 옥상의 녹색은 산화크롬 안료가 든 우레탄 방수 도료 때문이고, 기본색이라 값이 싸다는 설명 ([Shuttle Delivery 블로그, 2024-01-18](https://partners.shuttledelivery.co.kr/blog-posts/why-are-so-many-roofs-in-south-korea-green), 출처를 밝히지 않은 상업 블로그라 2차 근거). 60%라는 비율은 **가정**입니다.
+- 평지붕 일부(약 8%)는 흰색 쿨루프입니다. 서울시는 2014년 흰색 우레탄 방수 도료로 '옥상흰빛 캠페인'을 시작했고 ([서울시 환경 누리집](https://news.seoul.go.kr/env/archives/43080)), 2026년 취약가구 쿨루프 사업은 152개 건물(31,204 m²)에 칠했다고 보도됐습니다 ([Korea Times, 2026-09-16](https://www.koreatimes.co.kr/southkorea/society/20260916/heat-reflective-cool-roof-paint-cuts-summer-power-bills-for-vulnerable-seoul-households)). 비율은 **가정**이며, 2단계 기후 정책(쿨루프)이 생기면 정책 결과로 바뀌게 할 수 있습니다.
+- 경사지붕은 꼭짓점 4개의 볼록한 작은 건물(260 m² 이하, 12 m 이하)에만 얹습니다: 단독주택 60%, 상가주택 20%, 공공 30% (**가정**), 박공·모임지붕 반반, 경사 28°. 공장·창고 사각형은 낮은 경사(10°) 금속 지붕.
+- 색은 건물마다 OSM id로 후보 중 하나를 골라 실행마다 같습니다. 색 후보(붉은 벽돌, 베이지 타일, 흰 도장 등)는 눈으로 고른 값입니다.
+- Google 3D 타일·항공사진은 라이선스 때문에 쓰지 않습니다. 다른 게임의 에셋도 쓰지 않습니다.

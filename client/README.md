@@ -13,6 +13,7 @@ godot --path client --import --headless           # 처음 한 번 (리소스 �
 godot --path client                               # 맵 보기 창
 godot --headless --path client -- --quit-after-load   # 화면 없이 씬 로드 확인 → "MAP_VIEW_OK …"
 godot --path client -- --capture map.png          # 화면 캡처 저장 후 종료
+godot --path client -- --capture s.png --view street   # 가까운 시점 캡처 (overview·street·apartments)
 godot --path client -- --map D:/other/map-package  # 다른 맵 패키지
 godot --headless --path client -- --selftest     # 명령·차량 위치·보간 확인 → "SELFTEST_OK …"
 godot --path client -- --demo frames/            # 출퇴근 장면을 돌리며 프레임 PNG 저장
@@ -42,9 +43,11 @@ godot --path client -- --demo frames/            # 출퇴근 장면을 돌리며
 | --- | --- | --- |
 | 지형 | `terrain.png` + manifest 고도 범위 | 셀 중심을 꼭짓점으로 하는 격자 메시, 높이에 따라 색 |
 | 도로 | 코어 도로 그래프 (`road_points`, 차선 수, 유형) | 차선 수 × 3 m 폭의 띠, 지형 위 0.6 m, 유형별 색 |
-| 건물 | 코어가 읽은 `buildings.geojson` | 바닥 다각형을 표시 높이만큼 올린 상자 (지붕 삼각분할 + 벽) |
+| 건물 | 코어가 읽은 `buildings.geojson` | 바닥 다각형을 표시 높이만큼 올린 벽 + 지붕. 용도별 색, 셰이더로 그린 창문·1층 상점·간판, 평지붕 난간, 작은 사각형 건물의 박공·모임지붕 (`scripts/buildings.gd`, `shaders/building.gdshader`) |
 
 - 좌표: 맵 패키지 로컬 미터 (x 동쪽, y 북쪽) → Godot `(x, 높이, -y)`.
+- 건물 용도는 OSM 값(대부분 `yes`)과 바닥 면적으로 나눈 **표시용 가정**입니다 ([research-log.md](../docs/design/research-log.md#building-look)). 창문은 텍스처 파일 없이 셰이더로 그립니다.
+- 조명: 남동쪽 해(그림자 4단 분할, 3 km까지), 절차 하늘, 하늘 주변광, Filmic 톤매핑, SSAO, 먼 곳 안개.
 - 건물 높이는 OSM에 층수가 거의 없어 유형별 **가정** 높이를 씁니다 ([research-log.md](../docs/design/research-log.md#building-height)).
 - Godot는 16비트 PNG를 8비트로 읽어서 지형 높이는 약 (최고−최저)/255 m 단위입니다 (평택역 맵 0.17 m). 표시에는 충분하고, 시뮬레이션은 코어가 원본을 씁니다.
 
