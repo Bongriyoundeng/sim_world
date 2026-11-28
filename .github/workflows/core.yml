@@ -21,6 +21,20 @@ jobs:
       - run: cargo test
       - run: cargo clippy -p dongne-py --features extension-module --all-targets -- -D warnings
       - run: cargo clippy -p dongne-godot --all-targets -- -D warnings
+  determinism:
+    # 같은 시나리오의 상태 해시가 OS마다 같은지 (이슈 #33, crates/sim/tests/determinism.rs)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test -p dongne-sim-core --test determinism -- --nocapture
   python-binding:
     runs-on: ubuntu-latest
     defaults:

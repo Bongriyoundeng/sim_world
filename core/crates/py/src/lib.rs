@@ -156,6 +156,11 @@ impl Simulation {
         self.inner.day()
     }
 
+    /// 결정론 상태 해시 (16자리 16진수). 같은 맵·명령·시드면 OS와 무관하게 같다.
+    fn state_hash(&self) -> String {
+        self.inner.state_hash_hex()
+    }
+
     /// 엣지별 실제 통과 차량 수 `[(edge, vehicles), ...]`, 많은 순. `top`을 주면 앞에서 그만큼만.
     #[pyo3(signature = (top = None))]
     fn edge_usage(&self, top: Option<usize>) -> Vec<(u32, u32)> {

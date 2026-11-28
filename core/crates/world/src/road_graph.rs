@@ -171,8 +171,15 @@ fn key(p: (f64, f64)) -> Key {
     ((p.0 / SNAP_M).round() as i64, (p.1 / SNAP_M).round() as i64)
 }
 
-fn dist(a: (f64, f64), b: (f64, f64)) -> f64 {
-    (a.0 - b.0).hypot(a.1 - b.1)
+/// 벡터 길이. 표준 라이브러리의 hypot은 플랫폼 수학 라이브러리를 불러 OS마다 마지막 자리가
+/// 다를 수 있으므로, 결정론을 위해 IEEE 754가 정확한 반올림을 보장하는 sqrt로 계산한다.
+pub fn norm(dx: f64, dy: f64) -> f64 {
+    (dx * dx + dy * dy).sqrt()
+}
+
+/// 두 점 사이 거리 (`norm` 사용).
+pub fn dist(a: (f64, f64), b: (f64, f64)) -> f64 {
+    norm(a.0 - b.0, a.1 - b.1)
 }
 
 fn parse_roads(json: &str, excluded: &mut BTreeMap<String, u32>) -> Result<Vec<Road>, GraphError> {
@@ -382,7 +389,7 @@ impl RoadGraph {
             } else {
                 0.0
             };
-            (a.0 + vx * t - x).hypot(a.1 + vy * t - y)
+            norm(a.0 + vx * t - x, a.1 + vy * t - y)
         };
         self.edges
             .iter()
@@ -404,7 +411,7 @@ impl RoadGraph {
     pub fn nearest_node(&self, x: f64, y: f64, radius_m: f64) -> Option<u32> {
         self.nodes
             .iter()
-            .map(|n| ((n.x - x).hypot(n.y - y), n.id))
+            .map(|n| (norm(n.x - x, n.y - y), n.id))
             .filter(|&(d, _)| d <= radius_m)
             .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
             .map(|(_, id)| id)

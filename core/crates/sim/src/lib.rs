@@ -7,6 +7,7 @@ use dongne_world::road_graph::is_vehicle_road;
 use dongne_world::World;
 
 pub mod demand;
+pub mod hash;
 pub mod season;
 pub mod snapshot;
 pub mod traffic;
@@ -112,7 +113,7 @@ impl Simulation {
                 }
                 let a = self.resolve_end(from)?;
                 let b = self.resolve_end(to)?;
-                let length = (a.1 .0 - b.1 .0).hypot(a.1 .1 - b.1 .1);
+                let length = dongne_world::road_graph::dist(a.1, b.1);
                 if a.0.is_some() && a.0 == b.0 || length < MIN_ROAD_LENGTH_M {
                     return Err(format!(
                         "두 끝이 너무 가까움 ({length:.2} m < {MIN_ROAD_LENGTH_M} m)"

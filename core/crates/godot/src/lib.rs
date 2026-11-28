@@ -337,6 +337,14 @@ impl DongneWorld {
         GString::from(r.to_json().to_string().as_str())
     }
 
+    /// 결정론 상태 해시 (16자리 16진수).
+    #[func]
+    fn state_hash(&self) -> GString {
+        self.sim()
+            .map(|s| GString::from(s.state_hash_hex().as_str()))
+            .unwrap_or_default()
+    }
+
     /// 지금 날짜 (0부터).
     #[func]
     fn day(&self) -> i64 {

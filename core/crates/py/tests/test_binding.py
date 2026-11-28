@@ -82,3 +82,9 @@ def test_run_day_and_season():
     assert sim.day == 90 and sim.snapshot(vehicles=False)["seasons_completed"] == 1
     d = sim.run_day()
     assert d["day"] == 90 and d["trips"] == 0 and sim.day == 91
+
+
+def test_state_hash_from_python():
+    a = run(42).state_hash()
+    assert len(a) == 16 and a == run(42).state_hash()
+    assert a != run(43).state_hash()
