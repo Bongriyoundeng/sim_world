@@ -184,6 +184,24 @@ impl DongneWorld {
             .unwrap_or(0.0)
     }
 
+    /// 건물 OSM `building` 값 (yes, apartments, school, …). 표시 분류에 쓴다.
+    #[func]
+    fn building_kind(&self, i: i64) -> GString {
+        self.sim()
+            .and_then(|s| s.world.buildings.get(i as usize))
+            .map(|b| GString::from(b.kind.as_str()))
+            .unwrap_or_default()
+    }
+
+    /// 건물 OSM id. 표시 변형(색 고르기 등)을 건물마다 고정하는 씨앗으로 쓴다.
+    #[func]
+    fn building_osm_id(&self, i: i64) -> i64 {
+        self.sim()
+            .and_then(|s| s.world.buildings.get(i as usize))
+            .map(|b| b.osm_id)
+            .unwrap_or(0)
+    }
+
     /// n틱(1틱 = 100 ms) 진행.
     #[func]
     fn step(&mut self, n_ticks: i64) {
