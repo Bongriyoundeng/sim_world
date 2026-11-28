@@ -206,7 +206,7 @@ void fragment() {
 			ROUGHNESS = mix(0.88, 0.12, glassy);
 			SPECULAR = mix(0.3, 0.7, glassy);
 			// 밤: 칸의 일부만 불이 켜짐, 간판은 모두
-			vec3 lit = to_linear(glass_light) * (step(0.45, id) * glass + shop) + sc * signage;
+			vec3 lit = to_linear(glass_light) * (step(0.62, id) * glass + shop) + sc * signage;
 			EMISSION = night * lit * 2.0;
 		}
 	}
