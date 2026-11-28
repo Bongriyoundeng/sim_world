@@ -82,6 +82,13 @@
 - 쓰인 곳: `core/crates/sim/src/traffic.rs`의 `SATURATION_HEADWAY_MS`(2초), `SIGNAL_CYCLE_MS`(60초), `LOST_TIME_PER_PHASE_MS`(4초).
 - **가정**: 신호 위치 규칙(간선끼리 만나는 3갈래 이상 교차로) — OSM 평택역 범위에 `highway=traffic_signals`·`crossing=traffic_signals` 노드가 0개(2026-11-28 Overpass 확인)라 실제 위치를 쓸 수 없음. 최소 녹색 10초, 교차로별 신호 어긋남(노드 번호 × 7.919초), 교착 해소 60·300초, 국내 기준(도로용량편람) 값 확인은 조사 과제.
 
+<a id="phase2-data"></a>
+**2단계 인구·건물·지가 자료 (이슈 #35에서 다시 확인, 2026-11-28)** — 결정은 [ADR 0008](../adr/0008-phase2-data-sources.md)
+- 공공데이터포털 [15097972](https://www.data.go.kr/data/15097972/fileData.do) 행정안전부 지역별(행정동) 성별 연령별 주민등록 인구수: CSV, 월간, 열은 행정기관코드·기준연월·시도·시군구·읍면동·계·남·여·연령별(0~110세 이상). 세대 수는 없음. 이용허락범위 제한 없음.
+- [15134735](https://www.data.go.kr/data/15134735/openapi.do) 국토교통부 건축HUB 건축물대장정보: REST OpenAPI(JSON/XML), 서비스 키 필요, 월간, 기본개요·표제부·층별개요 등. 좌표 없음(지번 키). 이용허락범위 제한 없음. 세대 수·주용도 필드명은 샘플 응답으로 확인 필요.
+- [15052266](https://www.data.go.kr/data/15052266/fileData.do) 국토교통부 개별공시지가정보: 필지 단위 원/㎡, 반기, 상세 페이지는 SHP·CSV, 목록은 CSV로 표기가 다름. 이용허락범위 제한 없음.
+- SGIS [이용약관](https://sgis.mods.go.kr/view/member/clause) 제15조③(사전 승낙 없는 복제·재배포 금지)·제16조(승인 없는 상업 이용 금지)와 [저작권 정책](https://sgis.mods.go.kr/jsp/member/copyright.jsp)(공공누리 표시 저작물은 유형별 자유 이용)이 다르게 읽힘 → 보류.
+
 ## 지형 데이터 받는 곳
 
 <a id="copernicus-dem-aws"></a>
