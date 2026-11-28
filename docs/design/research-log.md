@@ -245,3 +245,21 @@
 - **가로등**: KS A 3701 고속도로 설치 예는 등주 12 m, 간격 55 m, 마주보기, 팔(암) 2.8 m입니다 ([신왕수 외 2016, 전기전자재료학회논문지 29(1):62–67](http://dx.doi.org/10.4313/JKEM.2016.29.1.62)). 도시 도로 값은 근거가 없어 **가정**합니다: primary·secondary 12 m 등주 40 m 간격 양쪽 마주보기, tertiary 10 m 35 m 한쪽, residential 8 m 30 m 한쪽. 팔은 1.8 m로 짧게 둡니다.
 - 밤 불빛은 등기구 발광과 노면 위 원판(더하기 혼합)으로 흉내 냅니다. 실제 광원(OmniLight)은 수천 개라 쓰지 않습니다.
 - 계절: 봄 연두(벚나무는 분홍), 여름 짙은 녹색, 가을 은행 노랑·느티 주황·버즘 갈색·벚 빨강, 겨울은 수관을 줄이고 갈회색(낙엽).
+
+## 지역 연결 (3단계 이후)
+
+<a id="region-link"></a>
+**SimCity(2013) 지역 플레이와 출시 실패**
+- 지역 플레이는 통근 노동자·쇼핑객 같은 상호작용을 지역 공용 데이터로 처리하는 "사실상 공유 클라우드 저장"이었고, 단일 도시는 로컬에서 시뮬 가능. 오프라인이 되면 약 20분 타이머 전까지 계속 시뮬됨. 출처: [PC Gamer, 2013-03-14](https://www.pcgamer.com/simcity-tested-offline-play-phantom-sims/)
+- 2013-03-05 출시 후 서버가 다운되었는데 오프라인 모드가 없어 거의 일주일간 플레이가 어려웠고, EA는 서버를 살리려 여러 기능을 껐다. Maxis 측은 오프라인 하위 모드를 만들 수 있었지만 비전에 맞지 않아 거절했다고 밝힘. 출처: [Kotaku, 2013-03-18](https://kotaku.com/your-complete-guide-to-the-simcity-disaster-5991077)
+- 쓰인 곳: 로컬 시뮬 + 서버는 경계 데이터만, 서버 없이도 완전한 게임(ADR 0006).
+
+**결정론 락스텝의 장단점**
+- 입력만 보내므로 대역폭이 시뮬 객체 수가 아니라 입력 크기에 비례. 대신 n번째 틱의 입력이 모두 와야 진행할 수 있어 기다려야 하고, 지연 버퍼만큼 반응이 늦어짐. 출처: [Gaffer On Games, Deterministic Lockstep (2014)](https://gafferongames.com/post/deterministic_lockstep/)
+- Factorio는 모든 참가자가 시뮬을 돌리고 행동만 전송. 게임 속도가 가장 느린 참가자에 묶이고, 작은 오차가 쌓이면 바로잡을 수 없어 desync가 남. 출처: [Factorio FFF #76 (2015)](https://factorio.com/blog/post/fff-76)
+- desync가 나면 서버·클라이언트 상태를 담은 보고서를 만들어 비교해 원인을 찾음. 출처: [Factorio FFF #188 (2017)](https://factorio.com/blog/post/fff-188)
+- 쓰인 곳: 실시간 락스텝 대신 계절 단위 비동기 교환, 상태 해시·리플레이로 검증(ADR 0006).
+
+**부동소수점 결정론**
+- 같은 컴파일러·아키텍처에서 엄격한 설정을 쓰면 가능하지만, 임의 컴파일러·플랫폼에서 같은 결과를 기대하는 것은 순진하다. 디버그·릴리스 빌드도 다를 수 있고, 사칙연산·sqrt와 달리 초월 함수는 플랫폼마다 다를 수 있다. 인용된 Markstein: IEEE 754도 모든 시스템에서 같은 결과를 보장하지 않음. 출처: [Gaffer On Games, Floating Point Determinism (2010)](https://gafferongames.com/post/floating_point_determinism)
+- 쓰인 곳: 시뮬 상태는 정수·고정소수점, 초월 함수 금지, 3개 OS CI 해시 비교(region-link.md 결정론 규칙).

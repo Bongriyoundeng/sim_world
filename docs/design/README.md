@@ -7,6 +7,7 @@
 | [climate.md](climate.md) | 기후 변화(폭염·침수) 시스템 설계 |
 | [balance.md](balance.md) | 1단계 밸런스: 수요·도로 용량 기본값과 근거·가정 |
 | [phase1-backlog.md](phase1-backlog.md) | 1단계 작업 목록 |
+| [region-link.md](region-link.md) | 지역 연결(이웃 동네와 비동기 연결) 설계 |
 | [sample-area.md](sample-area.md) | 샘플 동네 선정과 근거 |
 | [research-log.md](research-log.md) | 모든 기획 결정의 근거 자료 |
 | [phase2-backlog.md](phase2-backlog.md) | 2단계 작업 목록 (인구·경제·기후·AI 보좌관) |
