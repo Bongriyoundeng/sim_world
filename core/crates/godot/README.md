@@ -15,5 +15,6 @@
 | `zone_cells()`, `cell_at(p)` | 구역 셀 `[행, 열, 구역, …]`, 좌표의 셀 |
 | `nearest_edge(p, max_m)` | 가까운 도로 엣지 (없으면 -1) |
 | `add_random_trips(n, seed, window_s)`, `add_commute(seed)`, `traffic_json()` | 통행 만들기, 교통 통계 |
+| `run_season(seed) -> JSON`, `day()` | 한 계절 진행 (ADR 0007) |
 
 빌드와 복사: `python tools/build_godot_addon.py` → `client/addons/dongne_core/bin/` (커밋 안 함). 빌드가 무거워 workspace `default-members`에서 빠져 있고, CI는 `cargo clippy -p dongne-godot`으로 컴파일을 확인합니다.

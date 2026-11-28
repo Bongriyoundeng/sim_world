@@ -126,6 +126,84 @@ impl Simulation {
         )
     }
 
+    /// 건물 용도·연면적으로 오늘(지금 날짜 자정 기준) 하루의 출퇴근·방문 차량 통행을 만든다 (#36).
+    /// 요약 dict: 거주자·종사자 수, 통행 수, 용도별 합계.
+    #[pyo3(signature = (seed = 0, car_share = None))]
+    fn add_building_demand(
+        &mut self,
+        py: Python<'_>,
+        seed: u64,
+        car_share: Option<f64>,
+    ) -> PyResult<Py<PyAny>> {
+        let mut lp = dongne_world::land_use::LandUseParams::default();
+        if let Some(c) = car_share {
+            lp.car_share = c;
+        }
+        let day_start = self.inner.day() as u64 * dongne_sim_core::demand::DAY_MS;
+        let r = self
+            .inner
+            .add_building_demand_at(&lp, &DemandParams::default(), seed, day_start);
+        let by_use: serde_json::Map<String, serde_json::Value> = r
+            .by_use
+            .iter()
+            .map(|(u, t)| {
+                (
+                    format!("{u:?}").to_lowercase(),
+                    serde_json::json!({
+                        "buildings": t.buildings, "floor_area_m2": t.floor_area_m2,
+                        "residents": t.residents, "workers": t.workers,
+                        "trips_from": t.trips_from, "trips_to": t.trips_to,
+                    }),
+                )
+            })
+            .collect();
+        from_json(
+            py,
+            &serde_json::json!({
+                "residents": r.residents, "workers": r.workers,
+                "car_commuters": r.car_commuters, "visit_trips": r.visit_trips,
+                "trips": r.trips, "same_node": r.same_node, "unroutable": r.unroutable,
+                "buildings_used": r.buildings_used, "buildings_without_road": r.buildings_without_road,
+                "by_use": by_use,
+            }),
+        )
+    }
+
+    /// 다음 자정까지 진행하고 그날 보고서(dict)를 돌려준다.
+    fn run_day(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let r = self.inner.run_day();
+        from_json(py, &r.to_json())
+    }
+
+    /// 한 계절(대표 평일 하루를 차량 단위로 돌리고 90일로 집계)을 진행하고 보고서(dict)를 돌려준다.
+    /// ADR 0007. 쌓인 명령은 계절 시작 때 적용된다.
+    #[pyo3(signature = (seed = 0, residents_per_cell = None))]
+    fn run_season(
+        &mut self,
+        py: Python<'_>,
+        seed: u64,
+        residents_per_cell: Option<u32>,
+    ) -> PyResult<Py<PyAny>> {
+        let d = DemandParams::default();
+        let p = DemandParams {
+            residents_per_cell: residents_per_cell.unwrap_or(d.residents_per_cell),
+            ..d
+        };
+        let r = self.inner.run_season(&p, seed);
+        from_json(py, &r.to_json())
+    }
+
+    /// 지금 날짜 (0부터).
+    #[getter]
+    fn day(&self) -> u32 {
+        self.inner.day()
+    }
+
+    /// 결정론 상태 해시 (16자리 16진수). 같은 맵·명령·시드면 OS와 무관하게 같다.
+    fn state_hash(&self) -> String {
+        self.inner.state_hash_hex()
+    }
+
     /// 엣지별 실제 통과 차량 수 `[(edge, vehicles), ...]`, 많은 순. `top`을 주면 앞에서 그만큼만.
     #[pyo3(signature = (top = None))]
     fn edge_usage(&self, top: Option<usize>) -> Vec<(u32, u32)> {

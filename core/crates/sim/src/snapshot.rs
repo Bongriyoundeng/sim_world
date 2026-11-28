@@ -13,6 +13,7 @@ fn state_name(s: VehicleState) -> &'static str {
         VehicleState::Queued => "queued",
         VehicleState::WaitingToAdvance => "waiting_to_advance",
         VehicleState::Arrived => "arrived",
+        VehicleState::Cancelled => "cancelled",
     }
 }
 
@@ -27,11 +28,15 @@ impl Simulation {
             "map": self.world.manifest.name,
             "tick": self.tick(),
             "time_s": (self.tick() * TICK_MS) as f64 / 1000.0,
+            "day": self.day(),
+            "seasons_completed": self.calendar.seasons.len(),
             "traffic": {
                 "vehicles": stats.vehicles,
                 "arrived": stats.arrived,
                 "mean_travel_s": stats.mean_travel_s,
                 "max_travel_s": stats.max_travel_s,
+                "jam_relief": stats.jam_relief,
+                "cancelled": stats.cancelled,
             },
             "road_graph": {
                 "nodes": gs.nodes,

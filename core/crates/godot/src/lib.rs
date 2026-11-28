@@ -184,6 +184,24 @@ impl DongneWorld {
             .unwrap_or(0.0)
     }
 
+    /// 건물 OSM `building` 값 (yes, apartments, school, …). 표시 분류에 쓴다.
+    #[func]
+    fn building_kind(&self, i: i64) -> GString {
+        self.sim()
+            .and_then(|s| s.world.buildings.get(i as usize))
+            .map(|b| GString::from(b.kind.as_str()))
+            .unwrap_or_default()
+    }
+
+    /// 건물 OSM id. 표시 변형(색 고르기 등)을 건물마다 고정하는 씨앗으로 쓴다.
+    #[func]
+    fn building_osm_id(&self, i: i64) -> i64 {
+        self.sim()
+            .and_then(|s| s.world.buildings.get(i as usize))
+            .map(|b| b.osm_id)
+            .unwrap_or(0)
+    }
+
     /// n틱(1틱 = 100 ms) 진행.
     #[func]
     fn step(&mut self, n_ticks: i64) {
@@ -325,6 +343,30 @@ impl DongneWorld {
             )
             .as_str(),
         )
+    }
+
+    /// 한 계절 진행 (ADR 0007 대표일 방식). 보고서 JSON.
+    #[func]
+    fn run_season(&mut self, seed: i64) -> GString {
+        let Some(s) = self.sim.as_mut() else {
+            return GString::new();
+        };
+        let r = s.run_season(&DemandParams::default(), seed as u64);
+        GString::from(r.to_json().to_string().as_str())
+    }
+
+    /// 결정론 상태 해시 (16자리 16진수).
+    #[func]
+    fn state_hash(&self) -> GString {
+        self.sim()
+            .map(|s| GString::from(s.state_hash_hex().as_str()))
+            .unwrap_or_default()
+    }
+
+    /// 지금 날짜 (0부터).
+    #[func]
+    fn day(&self) -> i64 {
+        self.sim().map(|s| s.day() as i64).unwrap_or(0)
     }
 
     /// 교통 통계 JSON: 차량 수, 도착 수, 평균·최장 이동 시간(초).

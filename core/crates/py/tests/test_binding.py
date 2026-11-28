@@ -68,3 +68,34 @@ def test_commute_from_python():
     r = sim.add_commute(seed=1, residents_per_cell=2)
     assert r["commuters"] > 0 and r["trips"] == 2 * (r["commuters"] - r["same_node"])
     assert "Simulation(map=" in repr(sim)
+
+
+def test_run_day_and_season():
+    sim = dongne_core.Simulation.load(str(MAP))
+    sim.submit({"type": "set_zone", "area": {"cells": [[30, 5], [30, 6], [31, 5]]}, "zone": "residential"})
+    sim.submit({"type": "set_zone", "area": {"cells": [[30, 20], [31, 20]]}, "zone": "office"})
+    r = sim.run_season(seed=3)
+    assert r["season"] == 0 and r["first_day"] == 0 and r["days"] == 90
+    assert r["representative"]["trips"] > 0
+    assert r["total_trips"] == r["representative"]["trips"] * 90
+    assert len(r["representative"]["on_road_by_hour"]) == 24
+    assert sim.day == 90 and sim.snapshot(vehicles=False)["seasons_completed"] == 1
+    d = sim.run_day()
+    assert d["day"] == 90 and d["trips"] == 0 and sim.day == 91
+
+
+def test_state_hash_from_python():
+    a = run(42).state_hash()
+    assert len(a) == 16 and a == run(42).state_hash()
+    assert a != run(43).state_hash()
+
+
+def test_building_demand_by_use():
+    sim = dongne_core.Simulation.load(str(MAP))
+    r = sim.add_building_demand(seed=1)
+    assert r["residents"] > 1000 and r["workers"] > 1000 and r["trips"] > 0
+    assert {"residential", "public", "mixed"} <= set(r["by_use"])
+    assert r["by_use"]["residential"]["workers"] == 0
+    low = dongne_core.Simulation.load(str(MAP)).add_building_demand(seed=1, car_share=0.2)
+    assert low["car_commuters"] < r["car_commuters"]
+

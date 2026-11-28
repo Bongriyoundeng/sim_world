@@ -58,3 +58,25 @@ cd core && cargo test
 ## Python 바인딩 (`crates/py`)
 
 `import dongne_core`로 `Simulation.load` → `submit`(명령) → `step` → `snapshot`(dict)을 씁니다. 사용법과 빌드: [crates/py/README.md](crates/py/README.md). 스냅샷 형식: [schema/snapshots](../schema/snapshots/README.md). libpython이 필요해 workspace `default-members`에서 빠져 있고, CI `python-binding` 잡이 maturin + pytest로 검사합니다.
+
+## 하루·계절 진행 (`crates/sim/src/season.rs`)
+
+[ADR 0007](../docs/adr/0007-time-model.md) 시간 모델. 틱 100 ms, 하루 864,000틱, 계절 90일.
+
+- `run_day()`: 다음 자정까지 진행하고 그날 출발한 통행의 `DayReport`(통행·도착·미도착, 평균·최장 이동 시간, 시간대별 도로 위 차량)를 냅니다.
+- `run_season(params, seed)`: 쌓인 명령을 적용한 뒤, 계절 첫날(대표 평일)의 출퇴근을 지금 구역 맵으로 만들어(시드 + 계절 번호) 하루를 차량 단위로 돌리고, 통행 수를 90일로 집계한 `SeasonReport`를 냅니다. 남은 89일은 예약된 통행이 없으므로 이벤트 없이 건너뜁니다.
+- `calendar.log`에 `SeasonStart`·`DayStart`·`DayEnd`·`SeasonEnd`가 순서대로 남습니다. 인구·경제·기후 모델(2단계)은 이 경계에서 갱신됩니다.
+- 평택역 맵(시나리오 구역, 셀당 통근자 3명)으로 두 계절을 두 번 돌려 결과가 같은지 `crates/sim/tests/season.rs`가 확인합니다.
+
+## 결정론 검사 (`crates/sim/src/hash.rs`)
+
+`Simulation::state_hash()`는 시각·도로 그래프·구역·차량(경로·지나간 차선·도착 시각)·명령 결과·달력을 고정 순서로 FNV-1a 64비트에 넣은 값입니다. 표준 라이브러리의 기본 해셔는 Rust 버전마다 바뀔 수 있어 쓰지 않고, 실수는 비트 그대로 넣습니다.
+
+- `crates/sim/tests/determinism.rs`는 고정 시나리오(구역 → 계절 1개 → 도로 추가·삭제 → 무작위 통행 → 하루)의 해시를 기록값(`GOLDEN`)과 비교하고, CI `determinism` 잡이 **Linux와 Windows에서** 같은 테스트를 돌립니다. 시뮬레이션 동작을 일부러 바꿨다면 `--nocapture`로 새 값을 보고 `GOLDEN`을 바꾼 뒤 PR에 이유를 적습니다.
+- 플랫폼마다 결과가 달라질 수 있는 함수를 시뮬레이션 계산에서 쓰지 않습니다: 거리 계산은 `hypot` 대신 `sqrt(dx² + dy²)`(`road_graph::norm`, IEEE 754가 정확한 반올림을 보장). `atan2`는 화면용 차량 방향에만 씁니다.
+- Python `state_hash()`, Godot `state_hash()`로도 볼 수 있습니다.
+
+## 건물 기반 수요 (`crates/world/src/land_use.rs`, `crates/sim/src/building_demand.rs`)
+
+건물 용도(OSM `building`)·연면적(바닥 × 층수)으로 거주자·종사자·방문 통행을 계산하고(`land_use::activity`), `Simulation::add_building_demand_at`이 그날의 출퇴근(집 → 남은 일자리 비례로 고른 일터)과 방문(거주자 비례로 고른 집 → 상업·공공·사무) 차량 통행을 예약합니다. Python `add_building_demand(seed, car_share)`. 결과와 가정: [balance.md](../docs/design/balance.md) "건물 기반 수요".
+

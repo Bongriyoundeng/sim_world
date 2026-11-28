@@ -6,7 +6,10 @@ pub use dongne_api::{Command, CommandOutcome, CommandResult, RoadEnd};
 use dongne_world::road_graph::is_vehicle_road;
 use dongne_world::World;
 
+pub mod building_demand;
 pub mod demand;
+pub mod hash;
+pub mod season;
 pub mod snapshot;
 pub mod traffic;
 pub use demand::{Commuter, DemandParams, DemandSummary};
@@ -41,6 +44,8 @@ pub struct Simulation {
     next_command: u64,
     /// 처리한 명령의 결과 (처리 순서)
     pub outcomes: Vec<CommandOutcome>,
+    /// 하루·계절 경계 기록 (ADR 0007). 2단계 모델은 이 경계에서 갱신된다.
+    pub calendar: season::Calendar,
 }
 
 impl Simulation {
@@ -53,6 +58,7 @@ impl Simulation {
             pending: Vec::new(),
             next_command: 0,
             outcomes: Vec::new(),
+            calendar: season::Calendar::default(),
         }
     }
 
@@ -108,7 +114,7 @@ impl Simulation {
                 }
                 let a = self.resolve_end(from)?;
                 let b = self.resolve_end(to)?;
-                let length = (a.1 .0 - b.1 .0).hypot(a.1 .1 - b.1 .1);
+                let length = dongne_world::road_graph::dist(a.1, b.1);
                 if a.0.is_some() && a.0 == b.0 || length < MIN_ROAD_LENGTH_M {
                     return Err(format!(
                         "두 끝이 너무 가까움 ({length:.2} m < {MIN_ROAD_LENGTH_M} m)"
@@ -193,7 +199,18 @@ impl Simulation {
     }
 
     /// 지금 구역 맵에서 통근자를 만들고 출근(집 → 일터)·퇴근(일터 → 집) 차량 통행을 예약한다.
+    /// 출발 시각은 첫째 날(시각 0 = 자정) 기준이다. 다른 날은 `add_commute_at`.
     pub fn add_commute(&mut self, params: &DemandParams, seed: u64) -> CommuteReport {
+        self.add_commute_at(params, seed, 0)
+    }
+
+    /// `day_start_ms`(그날 자정)에 시작하는 하루의 출퇴근 통행을 예약한다.
+    pub fn add_commute_at(
+        &mut self,
+        params: &DemandParams,
+        seed: u64,
+        day_start_ms: u64,
+    ) -> CommuteReport {
         let (commuters, demand) =
             demand::generate_commuters(&self.world.zones, &self.world.road_graph, params, seed);
         let mut report = CommuteReport {
@@ -209,7 +226,7 @@ impl Simulation {
                 (c.home_node, c.work_node, c.leave_home_ms),
                 (c.work_node, c.home_node, c.leave_work_ms),
             ] {
-                if self.traffic.add_trip(o, d, t).is_some() {
+                if self.traffic.add_trip(o, d, day_start_ms + t).is_some() {
                     report.trips += 1;
                 } else {
                     report.unroutable += 1;

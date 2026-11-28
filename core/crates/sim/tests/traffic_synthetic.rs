@@ -1,6 +1,9 @@
 //! 작은 합성 도로망으로 차선 대기열·교차로 순서·막힌 차선을 검사한다.
 
-use dongne_sim_core::traffic::{Traffic, VehicleState, INTERSECTION_MS};
+use dongne_sim_core::traffic::{
+    Traffic, VehicleState, INTERSECTION_MS, LOST_TIME_PER_PHASE_MS, SATURATION_HEADWAY_MS,
+    SIGNAL_CYCLE_MS,
+};
 use dongne_world::RoadGraph;
 
 fn feature(osm_id: i64, lanes: Option<u32>, oneway: bool, pts: &[(f64, f64)]) -> String {
@@ -8,6 +11,21 @@ fn feature(osm_id: i64, lanes: Option<u32>, oneway: bool, pts: &[(f64, f64)]) ->
     let lanes = lanes.map_or("null".to_string(), |n| n.to_string());
     format!(
         r#"{{"type":"Feature","properties":{{"osm_id":{osm_id},"highway":"residential","name":null,"lanes":{lanes},"oneway":{oneway}}},"geometry":{{"type":"LineString","coordinates":[{}]}}}}"#,
+        coords.join(",")
+    )
+}
+
+fn feature_hw(
+    osm_id: i64,
+    highway: &str,
+    lanes: Option<u32>,
+    oneway: bool,
+    pts: &[(f64, f64)],
+) -> String {
+    let coords: Vec<String> = pts.iter().map(|(x, y)| format!("[{x},{y}]")).collect();
+    let lanes = lanes.map_or("null".to_string(), |n| n.to_string());
+    format!(
+        r#"{{"type":"Feature","properties":{{"osm_id":{osm_id},"highway":"{highway}","name":null,"lanes":{lanes},"oneway":{oneway}}},"geometry":{{"type":"LineString","coordinates":[{}]}}}}"#,
         coords.join(",")
     )
 }
@@ -68,8 +86,8 @@ fn lane_capacity_is_never_exceeded() {
 }
 
 #[test]
-fn intersection_serves_first_come_one_at_a_time() {
-    // 서쪽·북쪽에서 X로 들어와 동쪽으로 나가는 일방통행, 두 진입로 길이 같음
+fn unsignalized_merge_lets_each_approach_go_independently() {
+    // 서쪽·북쪽에서 X로 들어와 동쪽(2차로)으로 나가는 일방통행. 진입로 2개 → 신호 없음
     let g = graph(&[
         feature(1, Some(1), true, &[(-100.0, 0.0), (0.0, 0.0)]),
         feature(2, Some(1), true, &[(0.0, 100.0), (0.0, 0.0)]),
@@ -81,18 +99,128 @@ fn intersection_serves_first_come_one_at_a_time() {
         node(&g, 100.0, 0.0),
     );
     let mut t = Traffic::new(&g);
+    assert_eq!(t.signalized_nodes(), 0);
     let v1 = t.add_trip(w, e, 0).unwrap() as usize;
-    let v2 = t.add_trip(n, e, 500).unwrap() as usize; // 0.5초 늦게 출발 → X에 늦게 닿음
+    let v2 = t.add_trip(n, e, 500).unwrap() as usize; // 0.5초 늦게 출발
     t.run_until(120_000);
     let (a1, a2) = (
         t.vehicles[v1].arrive_ms.unwrap(),
         t.vehicles[v2].arrive_ms.unwrap(),
     );
-    assert!(a1 < a2);
-    // 출구 차선이 2개여도 교차로는 한 번에 한 대: v2는 v1이 다 지나간 뒤(2초 뒤) 들어간다
-    assert_eq!(a2 - a1, INTERSECTION_MS);
-    // 출구에서는 비어 있는 다른 차선을 고른다
+    // 진입로마다 따로 떠나므로 출발 간격(0.5초) 그대로 도착하고, 출구에서는 다른 차선을 고른다
+    assert_eq!(a2 - a1, 500);
     assert_ne!(t.vehicles[v1].trace.last(), t.vehicles[v2].trace.last());
+}
+
+#[test]
+fn same_lane_departs_at_saturation_headway() {
+    // A → X(진입 1차로) → B, 두 대가 X 앞에 같이 줄을 섬: 두 번째는 포화 차두시간(2초) 뒤에 떠난다
+    let g = graph(&[
+        feature(1, Some(1), true, &[(0.0, 0.0), (100.0, 0.0)]),
+        feature(2, Some(2), true, &[(100.0, 0.0), (300.0, 0.0)]),
+    ]);
+    let (a, b) = (node(&g, 0.0, 0.0), node(&g, 300.0, 0.0));
+    let mut t = Traffic::new(&g);
+    let v1 = t.add_trip(a, b, 0).unwrap() as usize;
+    let v2 = t.add_trip(a, b, 0).unwrap() as usize;
+    t.run_until(300_000);
+    let (a1, a2) = (
+        t.vehicles[v1].arrive_ms.unwrap(),
+        t.vehicles[v2].arrive_ms.unwrap(),
+    );
+    assert_eq!(a2 - a1, SATURATION_HEADWAY_MS);
+}
+
+/// 4갈래 교차로 X(0,0): 동서 2+2차로, 남북 1+1차로, 모두 tertiary(간선끼리 만나 신호 있음)
+fn crossroads() -> RoadGraph {
+    let two_way =
+        |id, lanes, pts: &[(f64, f64)]| feature_hw(id, "tertiary", Some(lanes), false, pts);
+    graph(&[
+        two_way(1, 4, &[(-200.0, 0.0), (0.0, 0.0)]),
+        two_way(2, 4, &[(0.0, 0.0), (200.0, 0.0)]),
+        two_way(3, 2, &[(0.0, 200.0), (0.0, 0.0)]),
+        two_way(4, 2, &[(0.0, 0.0), (0.0, -200.0)]),
+    ])
+}
+
+#[test]
+fn four_way_junction_gets_two_phase_signal() {
+    let g = crossroads();
+    let x = node(&g, 0.0, 0.0);
+    let t = Traffic::new(&g);
+    assert_eq!(t.signalized_nodes(), 1, "끝점(진입로 1개)은 신호 없음");
+    let sig = t.signal(x).unwrap().clone();
+    assert_eq!(sig.phase_of.len(), 4);
+    // 주도로 축(동서, 진입 차선 2+2)이 현시 0, 남북(1+1)이 현시 1, 녹색은 차선 비율 2:1
+    let usable = SIGNAL_CYCLE_MS - 2 * LOST_TIME_PER_PHASE_MS;
+    assert_eq!(sig.green_ms, [usable * 4 / 6, usable - usable * 4 / 6]);
+    let east_in = g
+        .edges
+        .iter()
+        .find(|e| e.osm_id == 1)
+        .map(|e| e.id * 2)
+        .unwrap();
+    let south_in = g
+        .edges
+        .iter()
+        .find(|e| e.osm_id == 3)
+        .map(|e| e.id * 2)
+        .unwrap();
+    assert_eq!(sig.phase_of.iter().find(|p| p.0 == east_in).unwrap().1, 0);
+    assert_eq!(sig.phase_of.iter().find(|p| p.0 == south_in).unwrap().1, 1);
+    // 한 주기 안에서 두 현시는 겹치지 않고, 녹색 시간 합은 주기 − 손실 시간
+    let (mut g0, mut g1) = (0, 0);
+    for ms in (0..SIGNAL_CYCLE_MS).step_by(100) {
+        let (a, b) = (sig.is_green(east_in, ms), sig.is_green(south_in, ms));
+        assert!(!(a && b));
+        g0 += a as u64;
+        g1 += b as u64;
+    }
+    assert_eq!((g0 + g1) * 100, usable);
+    // 빨간불이면 다음 녹색 시작까지 기다린다
+    let red = (0..SIGNAL_CYCLE_MS)
+        .find(|&ms| !sig.is_green(south_in, ms))
+        .unwrap();
+    let next = sig.next_green(south_in, red);
+    assert!(next > red && sig.is_green(south_in, next) && !sig.is_green(south_in, next - 1));
+}
+
+#[test]
+fn vehicle_on_red_waits_for_its_green() {
+    let g = crossroads();
+    let (n, s, x) = (
+        node(&g, 0.0, 200.0),
+        node(&g, 0.0, -200.0),
+        node(&g, 0.0, 0.0),
+    );
+    let mut probe = Traffic::new(&g);
+    let south_in = probe.route(n, x, None).unwrap()[0];
+    let sig = probe.signal(x).unwrap().clone();
+    // 북→남 차량이 X에 닿는 시각 = 출발 + 출발 교차로 2초 + 200 m 주행 (tertiary 50 km/h)
+    probe.add_trip(n, s, 0).unwrap();
+    probe.run_until(600_000);
+    let free_flow_arrival = probe.vehicles[0].arrive_ms.unwrap();
+    let reach_x = INTERSECTION_MS + (200.0 / (50.0 / 3.6) * 1000.0f64).ceil() as u64;
+    let wait = if sig.is_green(south_in, reach_x) {
+        0
+    } else {
+        sig.next_green(south_in, reach_x) - reach_x
+    };
+    let travel_after = free_flow_arrival - reach_x - wait;
+    // 출발 시각을 바꿔 X에 빨간불일 때 닿게 하면, 도착은 다음 녹색까지 기다린 만큼 늦다
+    let red_at = (0..SIGNAL_CYCLE_MS)
+        .map(|ms| ms + SIGNAL_CYCLE_MS)
+        .find(|&ms| !sig.is_green(south_in, ms) && sig.is_green(south_in, ms + 5_000))
+        .unwrap();
+    let mut t = Traffic::new(&g);
+    t.add_trip(n, s, red_at - reach_x).unwrap();
+    t.run_until(900_000);
+    let arrive = t.vehicles[0].arrive_ms.unwrap();
+    assert_eq!(
+        arrive,
+        sig.next_green(south_in, red_at) + travel_after,
+        "빨간불에서 다음 녹색까지 정확히 기다림"
+    );
 }
 
 #[test]
@@ -212,4 +340,22 @@ fn lane_positions_queue_behind_each_other() {
     let d: Vec<f64> = p.iter().map(|x| x.2).collect();
     assert_eq!(p.len(), 3, "세 대 모두 A→B에서 기다림: {p:?}");
     assert_eq!(d, vec![100.0, 92.5, 85.0]);
+}
+
+#[test]
+fn minor_junctions_have_no_signal() {
+    // 이면도로(residential) 4갈래, 그리고 간선(tertiary) 동서축에 이면도로가 붙은 T자 → 둘 다 신호 없음
+    let minor = graph(&[
+        feature(1, Some(2), false, &[(-200.0, 0.0), (0.0, 0.0)]),
+        feature(2, Some(2), false, &[(0.0, 0.0), (200.0, 0.0)]),
+        feature(3, Some(2), false, &[(0.0, 200.0), (0.0, 0.0)]),
+        feature(4, Some(2), false, &[(0.0, 0.0), (0.0, -200.0)]),
+    ]);
+    assert_eq!(Traffic::new(&minor).signalized_nodes(), 0);
+    let t_junction = graph(&[
+        feature_hw(1, "tertiary", Some(2), false, &[(-200.0, 0.0), (0.0, 0.0)]),
+        feature_hw(2, "tertiary", Some(2), false, &[(0.0, 0.0), (200.0, 0.0)]),
+        feature(3, Some(2), false, &[(0.0, 200.0), (0.0, 0.0)]),
+    ]);
+    assert_eq!(Traffic::new(&t_junction).signalized_nodes(), 0);
 }

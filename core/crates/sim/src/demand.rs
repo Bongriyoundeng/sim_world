@@ -90,7 +90,7 @@ fn access_node(g: &RoadGraph, candidates: &[u32], x: f64, y: f64, max_m: f64) ->
         .iter()
         .map(|&id| {
             let n = &g.nodes[id as usize];
-            ((n.x - x).hypot(n.y - y), id)
+            (dongne_world::road_graph::norm(n.x - x, n.y - y), id)
         })
         .filter(|&(d, _)| d <= max_m)
         .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
