@@ -80,3 +80,7 @@ cd core && cargo test
 
 건물 용도(OSM `building`)·연면적(바닥 × 층수)으로 거주자·종사자·방문 통행을 계산하고(`land_use::activity`), `Simulation::add_building_demand_at`이 그날의 출퇴근(집 → 남은 일자리 비례로 고른 일터)과 방문(거주자 비례로 고른 집 → 상업·공공·사무) 차량 통행을 예약합니다. Python `add_building_demand(seed, car_share)`. 결과와 가정: [balance.md](../docs/design/balance.md) "건물 기반 수요".
 
+## 경제 (`crates/sim/src/economy.rs`)
+
+셀 토지가치(기준값 × 간선 접근성 × 공원), 계절 재산세·도로 유지비·부채(`run_season`이 `SeasonReport::budget`에 기록), 거주 밀도 → 승용차 분담률(건물 수요가 사용). 계수는 모두 가정이며 개별공시지가(VWorld 키 필요)를 받으면 교체합니다: [balance.md](../docs/design/balance.md) "경제·분담률".
+

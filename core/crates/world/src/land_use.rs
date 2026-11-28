@@ -53,8 +53,10 @@ pub struct LandUseParams {
     pub industrial_m2_per_worker: f64,
     /// 거주자 중 통근하는 취업자 비율 (가정)
     pub employed_share: f64,
-    /// 통근·방문 중 승용차로 가는 비율 (가정, #37에서 밀도에 따라 바꿈)
+    /// 통근 중 승용차로 가는 비율 (가정). `car_share_from_density`가 true면 무시하고 건물 주변
+    /// 거주 밀도로 정한다 (sim::economy::car_share_for_density, #37)
     pub car_share: f64,
+    pub car_share_from_density: bool,
     /// 연면적 1,000㎡당 하루 방문(차량) 통행 — 교통영향평가지침의 "용도별 24시간 단위면적당 원단위" 방식, 값은 가정
     pub visit_trips_per_1000m2: [f64; 3], // [상업, 공공, 사무]
     /// 용도 불명 건물의 층수 (층수 태그가 없을 때). 건축물대장 표제부 평택동·통복동·군문동의
@@ -74,6 +76,7 @@ impl Default for LandUseParams {
             industrial_m2_per_worker: 100.0,
             employed_share: 0.5,
             car_share: 0.5,
+            car_share_from_density: true,
             visit_trips_per_1000m2: [20.0, 5.0, 2.0],
             mixed_floors: 2.11,
             mixed_residential_share: 0.344,

@@ -99,3 +99,14 @@ def test_building_demand_by_use():
     low = dongne_core.Simulation.load(str(MAP)).add_building_demand(seed=1, car_share=0.2)
     assert low["car_commuters"] < r["car_commuters"]
 
+
+def test_density_car_share_and_season_budget():
+    r = dongne_core.Simulation.load(str(MAP)).add_building_demand(seed=1)
+    assert 0.2 < r["mean_car_share"] < 0.7
+    fixed = dongne_core.Simulation.load(str(MAP)).add_building_demand(seed=1, car_share=0.5)
+    assert fixed["mean_car_share"] == 0.5
+    sim = dongne_core.Simulation.load(str(MAP))
+    b = sim.run_season(seed=1)["budget"]
+    assert b["property_tax"] > 0 and b["road_upkeep"] > 0
+    assert b["balance"] == b["property_tax"] - b["road_upkeep"] - b["policy_cost"]
+

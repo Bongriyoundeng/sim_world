@@ -25,6 +25,8 @@ pub enum CalendarEvent {
 pub struct Calendar {
     pub log: Vec<CalendarEvent>,
     pub seasons: Vec<SeasonReport>,
+    /// 지금까지 쌓인 부채 (원, #37 경제 모델)
+    pub debt: f64,
 }
 
 /// 하루 보고서: 그날 출발한 통행만 센다.
@@ -53,6 +55,8 @@ pub struct SeasonReport {
     /// 계절 전체 통행 수 (대표일 통행 × 일수)
     pub total_trips: u64,
     pub mean_commute_s: f64,
+    /// 계절 재정 (#37)
+    pub budget: crate::economy::SeasonBudget,
 }
 
 impl DayReport {
@@ -71,6 +75,11 @@ impl SeasonReport {
             "season": self.season, "first_day": self.first_day, "days": self.days,
             "total_trips": self.total_trips, "mean_commute_s": self.mean_commute_s,
             "representative": self.representative.to_json(),
+            "budget": {
+                "property_tax": self.budget.property_tax, "road_upkeep": self.budget.road_upkeep,
+                "policy_cost": self.budget.policy_cost, "balance": self.budget.balance,
+                "debt_after": self.budget.debt_after, "mean_land_value": self.budget.mean_land_value,
+            },
         })
     }
 }
@@ -174,6 +183,16 @@ impl Simulation {
             days: DAYS_PER_SEASON,
             total_trips: rep.trips as u64 * DAYS_PER_SEASON as u64,
             mean_commute_s: rep.mean_travel_s,
+            budget: {
+                let b = crate::economy::season_budget(
+                    &self.world,
+                    &crate::economy::EconomyParams::default(),
+                    0.0,
+                    self.calendar.debt,
+                );
+                self.calendar.debt = b.debt_after;
+                b
+            },
             representative: rep,
         };
         self.calendar.seasons.push(report.clone());
