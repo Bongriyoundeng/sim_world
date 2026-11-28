@@ -7,6 +7,7 @@
 | `map-package/` | 맵 패키지 형식 | gis → core, client |
 | `commands/` | 명령 (도로 건설, 구역 지정, 정책 변경) | client, ai → core |
 | `snapshots/` | 스냅샷·이벤트 | core → client, ai |
+| `climate/` | 기후 시나리오 (연도별 기온·강수, 사건일) | data, gis → core |
 | `personas/` | LLM 페르소나 템플릿 | ai → core |
 
 JSON Schema 파일은 1단계부터 Rust 타입(`core/crates/api`)에서 자동 생성하고, CI가 어긋남을 검사합니다.

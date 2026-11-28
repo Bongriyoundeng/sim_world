@@ -1,0 +1,72 @@
+{
+  "format_version": 0,
+  "name": "synthetic",
+  "source": "synthetic: 값을 임의로 정함 (기상청 자료·SSP 시나리오로 교체 예정). 사건의 최대 시간당 54.5mm만 2026-07 평택 집중호우 보도(sample-area.md)를 참고한 규모이고 시간별 모양은 가정",
+  "ssp": null,
+  "years": [
+    {
+      "year": 2026,
+      "summer_tmax_mean_c": 31.0,
+      "summer_tmax_sd_c": 2.5,
+      "heatwave_days": 15,
+      "max_1h_rain_mm": 55.0
+    },
+    {
+      "year": 2030,
+      "summer_tmax_mean_c": 31.4,
+      "summer_tmax_sd_c": 2.6,
+      "heatwave_days": 19,
+      "max_1h_rain_mm": 58.0
+    },
+    {
+      "year": 2040,
+      "summer_tmax_mean_c": 32.0,
+      "summer_tmax_sd_c": 2.7,
+      "heatwave_days": 26,
+      "max_1h_rain_mm": 63.0
+    }
+  ],
+  "events": [
+    {
+      "name": "여름 집중호우 (가정 시계열)",
+      "year": 2026,
+      "season": 1,
+      "rain_mm_per_h": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2.5,
+        8.0,
+        21.0,
+        38.0,
+        54.5,
+        30.0,
+        12.0,
+        6.0,
+        3.0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "tmax_c": null,
+      "source": "가정: 최대 시간당 54.5mm는 2026-07 평택(비전2동) 보도 수치를 참고, 시간별 분포는 임의"
+    },
+    {
+      "name": "폭염일 (가정)",
+      "year": 2026,
+      "season": 1,
+      "rain_mm_per_h": [],
+      "tmax_c": 36.5,
+      "source": "가정"
+    }
+  ]
+}
