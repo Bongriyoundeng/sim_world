@@ -20,6 +20,8 @@
 
 ## 2단계: 인구·경제·기후·AI 보좌관
 
+작업 목록: [design/phase2-backlog.md](design/phase2-backlog.md) (2026-11-28 계획)
+
 - 인구·경제, 재정 지표
 - 기후 변화: 폭염·집중호우 침수 격자 모델과 기후 정책 ([design/climate.md](design/climate.md), [ADR 0003](adr/0003-climate-system.md))
 - AI 보좌관 브리핑

@@ -9,5 +9,6 @@
 | [phase1-backlog.md](phase1-backlog.md) | 1단계 작업 목록 |
 | [sample-area.md](sample-area.md) | 샘플 동네 선정과 근거 |
 | [research-log.md](research-log.md) | 모든 기획 결정의 근거 자료 |
+| [phase2-backlog.md](phase2-backlog.md) | 2단계 작업 목록 (인구·경제·기후·AI 보좌관) |
 
 규칙: 기획 결정은 근거를 `research-log.md`에 남기고, 큰 결정은 `docs/adr/`에 ADR로 기록합니다.
