@@ -68,3 +68,17 @@ def test_commute_from_python():
     r = sim.add_commute(seed=1, residents_per_cell=2)
     assert r["commuters"] > 0 and r["trips"] == 2 * (r["commuters"] - r["same_node"])
     assert "Simulation(map=" in repr(sim)
+
+
+def test_run_day_and_season():
+    sim = dongne_core.Simulation.load(str(MAP))
+    sim.submit({"type": "set_zone", "area": {"cells": [[30, 5], [30, 6], [31, 5]]}, "zone": "residential"})
+    sim.submit({"type": "set_zone", "area": {"cells": [[30, 20], [31, 20]]}, "zone": "office"})
+    r = sim.run_season(seed=3)
+    assert r["season"] == 0 and r["first_day"] == 0 and r["days"] == 90
+    assert r["representative"]["trips"] > 0
+    assert r["total_trips"] == r["representative"]["trips"] * 90
+    assert len(r["representative"]["on_road_by_hour"]) == 24
+    assert sim.day == 90 and sim.snapshot(vehicles=False)["seasons_completed"] == 1
+    d = sim.run_day()
+    assert d["day"] == 90 and d["trips"] == 0 and sim.day == 91

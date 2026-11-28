@@ -126,6 +126,36 @@ impl Simulation {
         )
     }
 
+    /// 다음 자정까지 진행하고 그날 보고서(dict)를 돌려준다.
+    fn run_day(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let r = self.inner.run_day();
+        from_json(py, &r.to_json())
+    }
+
+    /// 한 계절(대표 평일 하루를 차량 단위로 돌리고 90일로 집계)을 진행하고 보고서(dict)를 돌려준다.
+    /// ADR 0007. 쌓인 명령은 계절 시작 때 적용된다.
+    #[pyo3(signature = (seed = 0, residents_per_cell = None))]
+    fn run_season(
+        &mut self,
+        py: Python<'_>,
+        seed: u64,
+        residents_per_cell: Option<u32>,
+    ) -> PyResult<Py<PyAny>> {
+        let d = DemandParams::default();
+        let p = DemandParams {
+            residents_per_cell: residents_per_cell.unwrap_or(d.residents_per_cell),
+            ..d
+        };
+        let r = self.inner.run_season(&p, seed);
+        from_json(py, &r.to_json())
+    }
+
+    /// 지금 날짜 (0부터).
+    #[getter]
+    fn day(&self) -> u32 {
+        self.inner.day()
+    }
+
     /// 엣지별 실제 통과 차량 수 `[(edge, vehicles), ...]`, 많은 순. `top`을 주면 앞에서 그만큼만.
     #[pyo3(signature = (top = None))]
     fn edge_usage(&self, top: Option<usize>) -> Vec<(u32, u32)> {

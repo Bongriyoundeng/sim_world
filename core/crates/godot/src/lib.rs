@@ -327,6 +327,22 @@ impl DongneWorld {
         )
     }
 
+    /// 한 계절 진행 (ADR 0007 대표일 방식). 보고서 JSON.
+    #[func]
+    fn run_season(&mut self, seed: i64) -> GString {
+        let Some(s) = self.sim.as_mut() else {
+            return GString::new();
+        };
+        let r = s.run_season(&DemandParams::default(), seed as u64);
+        GString::from(r.to_json().to_string().as_str())
+    }
+
+    /// 지금 날짜 (0부터).
+    #[func]
+    fn day(&self) -> i64 {
+        self.sim().map(|s| s.day() as i64).unwrap_or(0)
+    }
+
     /// 교통 통계 JSON: 차량 수, 도착 수, 평균·최장 이동 시간(초).
     #[func]
     fn traffic_json(&self) -> GString {

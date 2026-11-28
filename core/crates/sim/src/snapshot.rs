@@ -27,6 +27,8 @@ impl Simulation {
             "map": self.world.manifest.name,
             "tick": self.tick(),
             "time_s": (self.tick() * TICK_MS) as f64 / 1000.0,
+            "day": self.day(),
+            "seasons_completed": self.calendar.seasons.len(),
             "traffic": {
                 "vehicles": stats.vehicles,
                 "arrived": stats.arrived,
