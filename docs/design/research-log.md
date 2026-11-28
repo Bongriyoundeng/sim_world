@@ -59,6 +59,19 @@
 <a id="cds"></a>
 **Copernicus Climate Data Store**: 2025-07-02부터 "Licence to use Copernicus Products"가 CC-BY 4.0으로 대체됨([ECMWF 포럼](https://forum.ecmwf.int/t/cc-by-licence-to-replace-licence-to-use-copernicus-products-on-02-july-2025/13464)). CMIP6 원자료는 파일의 `license` 속성을 따라야 하며 일부 모델은 비상업(CC BY-NC-SA) → 사용 불가([CMIP6 이용 조건](https://ewds.climate.copernicus.eu/licences/cmip6-wps)).
 
+## 2단계 데이터 출처 확인 (2026-11-28)
+
+<a id="kma-license"></a>
+**기상청 기상자료개방포털** — 직접 열어 확인
+- [종관기상관측(ASOS)](https://data.kma.go.kr/data/grnd/selectAsosRltmList.do?pgmNo=36): 분·시간·일·월·연 자료, 제공 지점 105개, 1904년~(지점·요소별 다름). 시간 자료는 한 번에 1년까지 조회. 그 밖의 지점은 방재기상관측(AWS).
+- [저작권 보호 및 정책](https://data.kma.go.kr/cmmn/static/staticPage.do?page=pageCr): 기상청 저작물은 별도 허락 없이 자유 이용 가능, 공공누리 제1유형 표시 자료는 자유 이용, **출처를 구체적으로 표시해야 함**. 2~4유형 자료는 각 제한 확인, 공공누리 표시가 없는 자료는 사전 협의, 기상청이 저작권을 모두 갖지 않은 일부 자료는 허락 없이 변형·재배포 불가. 상업 이용 여부는 이 페이지에 명시 없음(공공누리 유형 정의는 kogl.or.kr에서 확인 필요).
+- 쓰일 곳: 2단계 이슈 7(기후 입력).
+
+**확인하지 못한 것** (2단계 이슈 4에서 다시 확인)
+- 통계지리정보서비스(SGIS) Open API: [개발자 페이지](https://sgis.mods.go.kr/developer/html/main.html)에서 인구·가구·주택 센서스 통계 API가 있음을 확인. 가입 시 API 이용약관 동의가 필요하다고만 있고 약관 본문·공간 단위는 페이지에 없음. (sgis.kostat.go.kr → sgis.mods.go.kr로 주소가 바뀜)
+- KOSIS 주민등록인구 표: 로그인 페이지로 넘어가 확인 못 함. 저작권 정책 페이지 주소(kosis.kr/serviceInfo/copyrightPolicy.do)는 404.
+- 공공데이터포털 건축물대장·개별공시지가: 기존에 알려진 데이터 번호 주소가 404. 현재 주소를 찾아야 함.
+
 ## 지형 데이터 받는 곳
 
 <a id="copernicus-dem-aws"></a>
