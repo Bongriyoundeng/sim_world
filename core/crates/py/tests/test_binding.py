@@ -88,3 +88,14 @@ def test_state_hash_from_python():
     a = run(42).state_hash()
     assert len(a) == 16 and a == run(42).state_hash()
     assert a != run(43).state_hash()
+
+
+def test_building_demand_by_use():
+    sim = dongne_core.Simulation.load(str(MAP))
+    r = sim.add_building_demand(seed=1)
+    assert r["residents"] > 1000 and r["workers"] > 1000 and r["trips"] > 0
+    assert {"residential", "public", "mixed"} <= set(r["by_use"])
+    assert r["by_use"]["residential"]["workers"] == 0
+    low = dongne_core.Simulation.load(str(MAP)).add_building_demand(seed=1, car_share=0.2)
+    assert low["car_commuters"] < r["car_commuters"]
+

@@ -89,6 +89,23 @@
 - [15052266](https://www.data.go.kr/data/15052266/fileData.do) 국토교통부 개별공시지가정보: 필지 단위 원/㎡, 반기, 상세 페이지는 SHP·CSV, 목록은 CSV로 표기가 다름. 이용허락범위 제한 없음.
 - SGIS [이용약관](https://sgis.mods.go.kr/view/member/clause) 제15조③(사전 승낙 없는 복제·재배포 금지)·제16조(승인 없는 상업 이용 금지)와 [저작권 정책](https://sgis.mods.go.kr/jsp/member/copyright.jsp)(공공누리 표시 저작물은 유형별 자유 이용)이 다르게 읽힘 → 보류.
 
+## 건물 → 인구·종사자·통행 (2단계 #36)
+
+<a id="land-use"></a>
+코드: `core/crates/world/src/land_use.rs`, `core/crates/sim/src/building_demand.rs`. 직접 확인한 근거와 가정을 나눕니다 (2026-11-28).
+
+**근거로 쓴 것**
+- 방식: 국토교통부 「교통영향평가지침」(국토교통부고시, [국가법령정보센터](https://www.law.go.kr/행정규칙/교통영향평가지침)) 제2조 6호는 "교통유발 원단위"를 건축물 **용도별** 일정 단위시간(일반적으로 24시간)과 단위지표(단위인구·단위면적 등)로 통행을 나타낸 값으로 정의하고, 제12조는 원단위를 해당 지역 같은 용도·비슷한 규모 건축물의 실측·관련 자료로 산출하라고 함. → 용도별 "연면적 1,000㎡당 하루 통행" 방식을 따름. **지침 본문에 숫자 표는 없음**(실측·DB 자료로 산출).
+- 종사자 1인당 연면적: 미국 EIA [CBECS 2012 표 PBA1](https://www.eia.gov/consumption/commercial/data/2012/bc/cfm/pba1.php) "Mean square feet per worker" — 사무(Office) 473 ft² ≈ 43.9㎡, 상업(Mercantile) 1,243 ft² ≈ 115.5㎡. 미국 자료라 국내 값으로 바꿀 과제.
+- 인구 비교 기준: 행정안전부 행정동 주민등록 인구 2026-10-31 ([ADR 0008](../adr/0008-phase2-data-sources.md)) — 통복동 6,328명, 비전1동 48,768명 등.
+
+**가정 (근거를 찾지 못함 — 확인 과제)**
+- 1인당 주거면적 30㎡ (국토교통부 주거실태조사 결과 페이지를 열지 못함).
+- 용도 불명 건물(`building=yes`, 평택역 맵 3,048개 중 2,946개)은 원도심 상가주택으로 보고 1층 상업 + 나머지 주거. 통행 대부분이 이 가정에서 나오므로 건축물대장(서비스 키, ADR 0008)이 생기면 가장 먼저 바꿀 값.
+- 공공·교육·산업 종사자 1인당 100㎡, 거주자 중 통근 취업자 50%, 승용차 비율 50%(#37에서 밀도에 따라 바꿈).
+- 방문 원단위(연면적 1,000㎡당 하루 차량 통행): 상업 20, 공공 5, 사무 2. 방문 도착 14시 ± 3시간(8~21시), 머무는 시간 1시간.
+- OSM 행정동 경계(admin_level 7~10)가 평택역 범위에 없어(2026-11-28 Overpass 확인) 동 인구를 셀로 나눠 맞추지 못하고 밀도만 비교함.
+
 <a id="building-register"></a>
 **건축물대장 표제부 — 평택역 주변 법정동 통계 (2026-11-28 조회)** ([ADR 0008](../adr/0008-phase2-data-sources.md))
 - 출처: 국토교통부 「건축HUB 건축물대장정보 서비스」 getBrTitleInfo, 공공데이터포털(이용허락범위 제한 없음). 관리자가 발급한 서비스 키(환경변수 `DATA_GO_KR_KEY`)로 조회, 키·요청 URL은 저장하지 않음. 원본(골라낸 필드)은 `data-raw/building-register/`(커밋 안 함). 도구: `cd gis && uv run python -m dongne_gis register --sigungu 41220 --bjdong 11300 11400 11500`.
@@ -177,3 +194,16 @@
 - 순서: `height` 태그 → `building:levels` × 3 m → 유형별 기본값.
 - 기본값: apartments 15층(45 m), house·detached·residential 2층(6 m), commercial·retail·office·school·public·hospital 4층(12 m), train_station·industrial·warehouse 6 m, roof·shed·garage·kiosk·construction 3 m, 그 밖(building=yes 등, 원도심 저층 상가주택으로 봄) 3층(9 m).
 - 지금은 표시용입니다. 인구·일자리 추정에 쓰려면 근거(건축물대장 등 공개 자료와 라이선스)를 먼저 확인합니다 (#13).
+
+## 건물 외형 (클라이언트 표시)
+
+<a id="building-look"></a>
+**표시 규칙 — 대부분 가정** — `client/scripts/buildings.gd`, `client/shaders/building.gdshader` (#55). 조사일: 2026-11-28.
+- 평택역 맵 건물 3,048개 중 2,944개(96.6%)가 `building=yes`라 OSM 값만으로는 용도를 나눌 수 없습니다. `yes`는 바닥 면적으로 나눕니다 (**가정**): 100 m² 미만 단독주택, 100~700 m² 상가주택(1층 상점 + 위층 주거), 700 m² 초과 상업. 면적 분포: 10% 60 m², 중앙값 121 m², 90% 294 m², 99% 860 m².
+- 그 밖의 값: apartments → 아파트, house·detached → 단독주택, commercial·retail·office → 상업, school·public·hospital 등 → 공공·학교, industrial·warehouse → 공장·창고, train_station → 역, roof·parking·construction 등 → 창 없는 부속 건물.
+- 창문은 텍스처 파일 없이 셰이더로 그립니다: 층 높이 3 m(코어 `STOREY_M`과 같음), 창 간격 아파트 3.3 m·상가주택 3.0 m·단독주택 3.5 m·상업 2.6 m·공공 3.6 m·공장 6 m (**가정**, 실측 아님). 벽 한 변의 칸 수는 변 길이 ÷ 간격을 반올림해 창이 모서리에 걸리지 않게 합니다. 아파트의 짧은 옆벽(가장 긴 변의 45% 미만)은 창 없는 측벽으로 둡니다.
+- 평지붕은 난간(0.9 m, 아파트 1.2 m)을 두르고, 단독주택·상가주택 평지붕의 60%를 녹색으로 칠합니다. 근거: 한국 옥상의 녹색은 산화크롬 안료가 든 우레탄 방수 도료 때문이고, 기본색이라 값이 싸다는 설명 ([Shuttle Delivery 블로그, 2024-01-18](https://partners.shuttledelivery.co.kr/blog-posts/why-are-so-many-roofs-in-south-korea-green), 출처를 밝히지 않은 상업 블로그라 2차 근거). 60%라는 비율은 **가정**입니다.
+- 평지붕 일부(약 8%)는 흰색 쿨루프입니다. 서울시는 2014년 흰색 우레탄 방수 도료로 '옥상흰빛 캠페인'을 시작했고 ([서울시 환경 누리집](https://news.seoul.go.kr/env/archives/43080)), 2026년 취약가구 쿨루프 사업은 152개 건물(31,204 m²)에 칠했다고 보도됐습니다 ([Korea Times, 2026-09-16](https://www.koreatimes.co.kr/southkorea/society/20260916/heat-reflective-cool-roof-paint-cuts-summer-power-bills-for-vulnerable-seoul-households)). 비율은 **가정**이며, 2단계 기후 정책(쿨루프)이 생기면 정책 결과로 바뀌게 할 수 있습니다.
+- 경사지붕은 꼭짓점 4개의 볼록한 작은 건물(260 m² 이하, 12 m 이하)에만 얹습니다: 단독주택 60%, 상가주택 20%, 공공 30% (**가정**), 박공·모임지붕 반반, 경사 28°. 공장·창고 사각형은 낮은 경사(10°) 금속 지붕.
+- 색은 건물마다 OSM id로 후보 중 하나를 골라 실행마다 같습니다. 색 후보(붉은 벽돌, 베이지 타일, 흰 도장 등)는 눈으로 고른 값입니다.
+- Google 3D 타일·항공사진은 라이선스 때문에 쓰지 않습니다. 다른 게임의 에셋도 쓰지 않습니다.

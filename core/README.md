@@ -76,3 +76,7 @@ cd core && cargo test
 - 플랫폼마다 결과가 달라질 수 있는 함수를 시뮬레이션 계산에서 쓰지 않습니다: 거리 계산은 `hypot` 대신 `sqrt(dx² + dy²)`(`road_graph::norm`, IEEE 754가 정확한 반올림을 보장). `atan2`는 화면용 차량 방향에만 씁니다.
 - Python `state_hash()`, Godot `state_hash()`로도 볼 수 있습니다.
 
+## 건물 기반 수요 (`crates/world/src/land_use.rs`, `crates/sim/src/building_demand.rs`)
+
+건물 용도(OSM `building`)·연면적(바닥 × 층수)으로 거주자·종사자·방문 통행을 계산하고(`land_use::activity`), `Simulation::add_building_demand_at`이 그날의 출퇴근(집 → 남은 일자리 비례로 고른 일터)과 방문(거주자 비례로 고른 집 → 상업·공공·사무) 차량 통행을 예약합니다. Python `add_building_demand(seed, car_share)`. 결과와 가정: [balance.md](../docs/design/balance.md) "건물 기반 수요".
+

@@ -6,6 +6,7 @@ pub use dongne_api::{Command, CommandOutcome, CommandResult, RoadEnd};
 use dongne_world::road_graph::is_vehicle_road;
 use dongne_world::World;
 
+pub mod building_demand;
 pub mod demand;
 pub mod hash;
 pub mod season;

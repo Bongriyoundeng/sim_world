@@ -8,11 +8,19 @@ extends Node3D
 ##   --map <폴더>        맵 패키지 (기본: 저장소의 maps/pyeongtaek-station)
 ##   --quit-after-load   메시를 다 만들고 종료 (헤드리스 확인용)
 ##   --capture <png>     몇 프레임 그린 뒤 화면을 저장하고 종료
+##   --view <이름>       처음 카메라 위치: overview(기본), street(원도심 저층), apartments(아파트 단지)
 ##   그 밖의 옵션(--selftest, --demo)과 조작법은 scripts/sim_controller.gd
 
 const DEFAULT_MAP := "../maps/pyeongtaek-station"
 const ROAD_LIFT_M := 0.6        # 도로를 지형 위로 살짝 띄움
 const LANE_WIDTH_M := 3.0       # 표시용 차로 폭 (research-log.md#road-width)
+
+## 카메라 시작 위치 (눈 위치, 보는 곳). 로컬 좌표 (x, 높이, -y)
+const VIEWS := {
+	"overview": [Vector3(-420, 980, 1150), Vector3(0, 0, -60)],
+	"street": [Vector3(-330, 75, -250), Vector3(-225, 10, -375)],
+	"apartments": [Vector3(200, 150, 640), Vector3(380, 15, 380)],
+}
 
 const ROAD_COLORS := {
 	"primary": Color(0.95, 0.75, 0.35), "secondary": Color(0.95, 0.85, 0.45),
@@ -48,7 +56,7 @@ func _ready() -> void:
 	add_child(_terrain_mesh())
 	rebuild_roads()
 	add_child(_building_mesh())
-	_add_camera_and_light()
+	_add_camera_and_light(_arg(args, "--view", "overview"))
 
 	print("MAP_VIEW_OK map=%s terrain=%dx%d roads=%d buildings=%d" % [
 		world.map_name(), cols, rows, world.road_count(), world.building_count()])
@@ -180,45 +188,17 @@ func _road_mesh() -> MeshInstance3D:
 
 # ── 건물 ──────────────────────────────────────────────
 
+## 건물: 용도별 색·창문·지붕 (scripts/buildings.gd, shaders/building.gdshader)
 func _building_mesh() -> MeshInstance3D:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in world.building_count():
-		var fp: PackedVector2Array = world.building_footprint(i)
-		var h: float = world.building_height(i)
-		var base := INF
-		for p in fp:
-			base = minf(base, height_at(p))
-		var top := base + h
-		var shade := clampf(0.55 + h / 120.0, 0.55, 0.95)
-		# 지붕
-		var tri := Geometry2D.triangulate_polygon(fp)
-		st.set_color(Color(shade, shade, shade * 1.05))
-		for k in tri:
-			st.set_normal(Vector3.UP)
-			st.add_vertex(_to3(fp[k], top))
-		# 벽
-		st.set_color(Color(shade * 0.8, shade * 0.78, shade * 0.75))
-		for j in fp.size():
-			var a := fp[j]
-			var b := fp[(j + 1) % fp.size()]
-			var d := b - a
-			var nrm := Vector3(d.y, 0, d.x).normalized()
-			var q := [_to3(a, base), _to3(b, base), _to3(b, top), _to3(a, top)]
-			for k in [0, 1, 2, 0, 2, 3]:
-				st.set_normal(nrm)
-				st.add_vertex(q[k])
-	var mi := MeshInstance3D.new()
-	mi.name = "Buildings"
-	mi.mesh = st.commit()
-	mi.material_override = _material(Color.WHITE, true)
-	return mi
+	var b: RefCounted = load("res://scripts/buildings.gd").new()
+	return b.build(world, height_at)
 
 
 func _material(albedo: Color, vertex_color: bool) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = albedo
 	m.vertex_color_use_as_albedo = vertex_color
+	m.vertex_color_is_srgb = true
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	m.roughness = 0.9
 	return m
@@ -226,26 +206,56 @@ func _material(albedo: Color, vertex_color: bool) -> StandardMaterial3D:
 
 # ── 카메라·조명 ────────────────────────────────────────
 
-func _add_camera_and_light() -> void:
+func _add_camera_and_light(view: String) -> void:
 	cam = Camera3D.new()
 	cam.name = "Camera"
 	cam.far = 6000
 	cam.fov = 50
 	add_child(cam)
-	cam.look_at_from_position(Vector3(-420, 980, 1150), Vector3(0, 0, -60), Vector3.UP)
+	var v: Array = VIEWS.get(view, VIEWS["overview"])
+	cam.look_at_from_position(v[0], v[1], Vector3.UP)
 
+	# 해: 늦은 오전 남동쪽 (그림자가 북서로 길게), 그림자는 전체 맵이 보이는 거리까지
 	var sun := DirectionalLight3D.new()
 	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-55, -35, 0)
+	sun.rotation_degrees = Vector3(-42, 150, 0)
+	sun.light_color = Color(1.0, 0.96, 0.9)
+	sun.light_energy = 1.25
 	sun.shadow_enabled = true
+	sun.shadow_bias = 0.05
+	sun.shadow_normal_bias = 1.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_max_distance = 3000.0
+	sun.directional_shadow_blend_splits = true
 	add_child(sun)
 
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.36, 0.55, 0.80)
+	sky_mat.sky_horizon_color = Color(0.72, 0.80, 0.88)
+	sky_mat.ground_horizon_color = Color(0.72, 0.80, 0.88)
+	sky_mat.ground_bottom_color = Color(0.40, 0.42, 0.40)
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.72, 0.82, 0.92)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.6, 0.62, 0.66)
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = 0.6
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.0
+	# 건물 사이·벽 아래 접지 그늘
+	env.ssao_enabled = true
+	env.ssao_radius = 3.0
+	env.ssao_intensity = 1.6
+	# 먼 곳을 하늘색으로 흐림 (공기 원근)
+	env.fog_enabled = true
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_light_color = Color(0.74, 0.81, 0.89)
+	env.fog_depth_begin = 900.0
+	env.fog_depth_end = 4500.0
+	env.fog_density = 0.2
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
